@@ -36,10 +36,14 @@ npm link   # optional: makes `alfred-tui` available globally
 alfred-tui
 ```
 
-Keyboard, session list: `↑`/`k` `↓`/`j` move, `Enter` open, `a` archive/unarchive, `A` toggle
-showing archived, `/` filter, `Tab`/`p` switch to Plans, `Esc`/`q` quit.
+Keyboard, session list: `↑`/`k` `↓`/`j` move, `Enter` open, `a` archive/unarchive, `r` resume in
+Claude, `A` toggle showing archived, `/` filter, `Tab`/`p` switch to Plans, `Esc`/`q` quit.
 
-Keyboard, session detail: `↑`/`k` `↓`/`j` prev/next turn, `g`/`G` first/last turn, `Esc`/`q` back.
+Keyboard, session detail: `↑`/`k` `↓`/`j` prev/next turn, `g`/`G` first/last turn, `r` resume in
+Claude, `Esc`/`q` back.
+
+`r` hands the terminal to `claude --resume <sessionId>` and returns to alfred-tui when that
+session exits. Resuming an archived session asks for confirmation first.
 
 Keyboard, plans: `↑`/`k` `↓`/`j` move, `Enter` open, `Tab`/`s` switch to Sessions, `Esc`/`q` quit/back.
 

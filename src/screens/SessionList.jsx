@@ -30,7 +30,7 @@ function buildRows(projects, filter) {
 }
 
 export default function SessionList({
-  projects, showArchived, onToggleShowArchived, onArchiveToggle, onOpen, onSwitchToPlans, onQuit,
+  projects, showArchived, onToggleShowArchived, onArchiveToggle, onResume, onOpen, onSwitchToPlans, onQuit,
 }) {
   const [selected, setSelected] = useState(0);
   const [filterMode, setFilterMode] = useState(false);
@@ -94,6 +94,10 @@ export default function SessionList({
       onArchiveToggle(rows[clampedSelected].session);
       return;
     }
+    if (input === 'r' && clampedSelected !== -1) {
+      onResume(rows[clampedSelected].session);
+      return;
+    }
   });
 
   return (
@@ -134,7 +138,7 @@ export default function SessionList({
       <Footer hints={
         filterMode
           ? 'Enter/Esc: done filtering'
-          : '↑/k ↓/j move  Enter open  a archive  A show archived  / filter  Tab plans  q quit'
+          : '↑/k ↓/j move  Enter open  a archive  r resume  A show archived  / filter  Tab plans  q quit'
       } />
     </Box>
   );

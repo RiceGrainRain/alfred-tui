@@ -4,12 +4,15 @@ import SessionList from './screens/SessionList.jsx';
 import SessionDetail from './screens/SessionDetail.jsx';
 import PlanList from './screens/PlanList.jsx';
 import PlanDetail from './screens/PlanDetail.jsx';
+import ConfirmResume from './components/ConfirmResume.jsx';
 import * as db from './db.js';
 import * as sessionIndex from './session-index.js';
 import { listPlanModePlans, listTrackedProgress } from './plans.js';
+import { resumeInClaude } from './resume.js';
 
 export default function App() {
-  const { exit } = useApp();
+  const { exit, suspendTerminal } = useApp();
+  const [pendingResume, setPendingResume] = useState(null);
   const [status, setStatus] = useState('loading'); // loading | ready | error
   const [error, setError] = useState(null);
   const [progress, setProgress] = useState(null);
@@ -73,6 +76,17 @@ export default function App() {
     refresh(showArchived);
   };
 
+  const doResume = async (session) => {
+    await suspendTerminal(() => resumeInClaude(session.sessionId));
+    sessionIndex.reconcileCacheFromFilesystem();
+    refresh(showArchived);
+  };
+
+  const onResume = (session) => {
+    if (session.archived) setPendingResume(session);
+    else doResume(session);
+  };
+
   const top = stack[stack.length - 1] || { type: rootTab === 'sessions' ? 'sessionList' : 'planList' };
 
   // Placeholder for anything not yet handling its own input; every current
@@ -84,7 +98,7 @@ export default function App() {
       if (status === 'error') exit();
       else onQuit();
     }
-  }, { isActive: status === 'error' || (status === 'ready' && !ownsInput.has(top.type)) });
+  }, { isActive: status === 'error' || (status === 'ready' && !pendingResume && !ownsInput.has(top.type)) });
 
   if (status === 'error') {
     return (
@@ -108,6 +122,16 @@ export default function App() {
     );
   }
 
+  if (pendingResume) {
+    return (
+      <ConfirmResume
+        session={pendingResume}
+        onConfirm={() => { const s = pendingResume; setPendingResume(null); doResume(s); }}
+        onCancel={() => setPendingResume(null)}
+      />
+    );
+  }
+
   if (top.type === 'sessionList') {
     return (
       <SessionList
@@ -115,6 +139,7 @@ export default function App() {
         showArchived={showArchived}
         onToggleShowArchived={onToggleShowArchived}
         onArchiveToggle={onArchiveToggle}
+        onResume={onResume}
         onOpen={(session) => push({ type: 'sessionDetail', session })}
         onSwitchToPlans={() => setRootTab('plans')}
         onQuit={onQuit}
@@ -123,7 +148,7 @@ export default function App() {
   }
 
   if (top.type === 'sessionDetail') {
-    return <SessionDetail session={top.session} onBack={pop} />;
+    return <SessionDetail session={top.session} onBack={pop} onResume={onResume} />;
   }
 
   if (top.type === 'planList') {
