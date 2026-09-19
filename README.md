@@ -35,7 +35,7 @@ Electron, `node-pty`, or `xterm` in the dependency tree.
 
 - Switchboard-style sidebar: project-grouped (with per-group counts), scrollable cards showing
   title, star, relative time, message count, and a green ● live marker on the open session.
-- Open any session live in a real terminal pane (Enter).
+- Open any session live in a real terminal pane (`Enter` to resume, `n` to start a new session in the same project directory).
 - Read a session's transcript without leaving the sidebar (v), markdown rendered — no raw syntax.
 - Archive / unarchive (a) and star / unstar (s) — both sync with Switchboard.
 - Browse `~/.claude/plans/*.md` plan-mode plans plus any project's `plan-tracker.md`/`todos.md`,
@@ -67,8 +67,8 @@ intact).
 
 ### Keys
 
-**Sidebar (sessions):** `↑`/`↓` (or `k`/`j`) move · `Enter` open live · `v` view transcript ·
-`a` archive · `s` star · `/` filter · `A` show archived · `Tab`/`p` plans · `q` quit
+**Sidebar (sessions):** `↑`/`↓` (or `k`/`j`) move · `Enter` open (resume) · `n` new session ·
+`v` view transcript · `a` archive · `s` star · `/` filter · `A` show archived · `Tab`/`p` plans · `q` quit
 
 **Transcript view:** `↑`/`↓` prev/next turn · `g`/`G` first/last · `o` open live · `q`/`Esc` back
 

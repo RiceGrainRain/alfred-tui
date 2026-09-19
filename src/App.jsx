@@ -90,6 +90,26 @@ export default function App() {
     setLiveSessionId(session.sessionId);
   };
 
+  // n on a session: start a brand-new claude session in that session's project
+  // directory. Confirms first if the work pane is already busy.
+  const onNew = (session) => {
+    const doNew = () => {
+      tmux.newSessionInWorkPane(workPane.current, session.projectPath);
+      // Clear the live marker — the new session has no id yet. It will
+      // appear in the sidebar once it writes its first JSONL line and the
+      // cache reconciles on the next refresh.
+      setLiveSessionId(null);
+    };
+    if (tmux.workPaneBusy(workPane.current)) {
+      setConfirm({
+        message: `Start a new claude session in ${session.projectPath}? (will replace what's in the work pane)`,
+        onYes: doNew,
+      });
+    } else {
+      doNew();
+    }
+  };
+
   // Enter on a session: open it live in the work pane. Confirm first if the
   // pane is busy (would kill a running claude) or the session is archived.
   const onOpen = (session) => {
@@ -167,6 +187,7 @@ export default function App() {
         onArchiveToggle={onArchiveToggle}
         onStarToggle={onStarToggle}
         onOpen={onOpen}
+        onNew={onNew}
         onView={onView}
         onSwitchToPlans={() => setRootTab('plans')}
         onQuit={onQuit}

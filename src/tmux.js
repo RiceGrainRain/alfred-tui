@@ -117,6 +117,17 @@ function openInWorkPane(workPane, sessionId, cwd) {
   return ok;
 }
 
+/** Start a brand-new `claude` session in the work pane (no --resume). */
+function newSessionInWorkPane(workPane, cwd) {
+  if (!workPane) return false;
+  const args = ['respawn-pane', '-k'];
+  if (cwd) args.push('-c', cwd);
+  args.push('-t', workPane, 'claude');
+  const ok = tmuxQuiet(args);
+  if (ok) tmuxQuiet(['select-pane', '-t', workPane]);
+  return ok;
+}
+
 function killWorkPane(workPane) {
   if (workPane) tmuxQuiet(['kill-pane', '-t', workPane]);
 }
@@ -127,5 +138,5 @@ function killOwnedSession() {
 
 export {
   inTmux, ownsSession, selfPaneId, sessionExists, bootstrap,
-  ensureWorkPane, workPaneBusy, openInWorkPane, killWorkPane, killOwnedSession,
+  ensureWorkPane, workPaneBusy, openInWorkPane, newSessionInWorkPane, killWorkPane, killOwnedSession,
 };

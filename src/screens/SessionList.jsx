@@ -32,7 +32,7 @@ function buildFlat(projects, filter) {
 
 export default function SessionList({
   projects, showArchived, liveSessionId,
-  onToggleShowArchived, onArchiveToggle, onStarToggle, onOpen, onView, onSwitchToPlans, onQuit,
+  onToggleShowArchived, onArchiveToggle, onStarToggle, onOpen, onNew, onView, onSwitchToPlans, onQuit,
 }) {
   const [selected, setSelected] = useState(0);
   const [filterMode, setFilterMode] = useState(false);
@@ -73,6 +73,7 @@ export default function SessionList({
     const cur = flat[sel]?.session;
     if (!cur) return;
     if (key.return) { onOpen(cur); return; }
+    if (input === 'n') { onNew(cur); return; }
     if (input === 'v') { onView(cur); return; }
     if (input === 'a') { onArchiveToggle(cur); return; }
     if (input === 's') { onStarToggle(cur); return; }
@@ -123,7 +124,7 @@ export default function SessionList({
       <Footer hints={
         filterMode
           ? 'type to filter · ⏎/Esc done'
-          : '↑↓ move · ⏎ open · v view · a arch · s star · / find · A all · ⇥ plans · q quit'
+          : '↑↓ move · ⏎ open · n new · v view · a arch · s star · / find · A all · ⇥ plans · q quit'
       } />
     </Box>
   );
