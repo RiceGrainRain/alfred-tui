@@ -15,6 +15,12 @@ tree.
 - View a session's transcript without raw markdown syntax cluttering the screen
 - Archive / unarchive a session
 - Browse all `~/.claude/plans/*.md` plan-mode plans and read them rendered, not raw
+- Discover and view any project's `plan-tracker.md`/`todos.md` progress checklist
+
+Sessions and plans are Switchboard's own data — this reads `~/.claude/projects` directly and
+shares Switchboard's SQLite cache at `~/.switchboard/switchboard.db`, so archiving here is
+also reflected there, and vice versa. Nothing else in Switchboard (Projects/Tracks/Schedules,
+its built-in terminal, file browser, stats, auto-update, etc.) is touched or required.
 
 ## Install
 
@@ -30,12 +36,27 @@ npm link   # optional: makes `alfred-tui` available globally
 alfred-tui
 ```
 
-Keyboard: arrow keys / `j` `k` to move, `Enter` to open, `a` to archive/unarchive, `/` to filter,
-`Esc` / `q` to go back or quit.
+Keyboard, session list: `↑`/`k` `↓`/`j` move, `Enter` open, `a` archive/unarchive, `A` toggle
+showing archived, `/` filter, `Tab`/`p` switch to Plans, `Esc`/`q` quit.
+
+Keyboard, session detail: `↑`/`k` `↓`/`j` prev/next turn, `g`/`G` first/last turn, `Esc`/`q` back.
+
+Keyboard, plans: `↑`/`k` `↓`/`j` move, `Enter` open, `Tab`/`s` switch to Sessions, `Esc`/`q` quit/back.
 
 ## Development
 
 ```bash
 npm run build   # bundle src/ to dist/ via esbuild
 npm test        # node --test
+```
+
+Requires Node ≥22 (Ink 7 and better-sqlite3 both require it).
+
+For development against fixture data instead of your real sessions/plans, override:
+
+```bash
+SWITCHBOARD_DATA_DIR=/tmp/alfred-tui-dev \
+ALFRED_TUI_CLAUDE_PROJECTS_DIR=/tmp/alfred-tui-dev-projects \
+ALFRED_TUI_CLAUDE_PLANS_DIR=/tmp/alfred-tui-dev-plans \
+  npm start
 ```

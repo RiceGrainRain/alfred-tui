@@ -10,7 +10,8 @@ import { listPlanModePlans, listTrackedProgress } from './plans.js';
 
 export default function App() {
   const { exit } = useApp();
-  const [status, setStatus] = useState('loading'); // loading | ready
+  const [status, setStatus] = useState('loading'); // loading | ready | error
+  const [error, setError] = useState(null);
   const [progress, setProgress] = useState(null);
   const [projects, setProjects] = useState([]);
   const [showArchived, setShowArchived] = useState(false);
@@ -27,13 +28,18 @@ export default function App() {
     // Deferred one tick so the "loading" text has a chance to paint before
     // the (synchronous) cold-start/reconcile scan blocks the event loop.
     const timer = setTimeout(() => {
-      if (!db.isCachePopulated()) {
-        sessionIndex.populateCacheSync((i, total) => setProgress({ i, total }));
-      } else {
-        sessionIndex.reconcileCacheFromFilesystem();
+      try {
+        if (!db.isCachePopulated()) {
+          sessionIndex.populateCacheSync((i, total) => setProgress({ i, total }));
+        } else {
+          sessionIndex.reconcileCacheFromFilesystem();
+        }
+        refresh(showArchived);
+        setStatus('ready');
+      } catch (err) {
+        setError(err.message || String(err));
+        setStatus('error');
       }
-      refresh(showArchived);
-      setStatus('ready');
     }, 0);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -74,8 +80,23 @@ export default function App() {
   // net kept for forward compatibility with future screens.
   const ownsInput = new Set(['sessionList', 'sessionDetail', 'planList', 'planDetail']);
   useInput((input, key) => {
-    if (input === 'q' || key.escape) onQuit();
-  }, { isActive: status === 'ready' && !ownsInput.has(top.type) });
+    if (input === 'q' || key.escape) {
+      if (status === 'error') exit();
+      else onQuit();
+    }
+  }, { isActive: status === 'error' || (status === 'ready' && !ownsInput.has(top.type)) });
+
+  if (status === 'error') {
+    return (
+      <Box flexDirection="column" padding={1}>
+        <Text color="red" bold>alfred-tui hit a startup error:</Text>
+        <Text color="red">{error}</Text>
+        <Box marginTop={1}>
+          <Text dimColor>Check that ~/.claude/projects and ~/.switchboard are readable. Press q/Esc to exit.</Text>
+        </Box>
+      </Box>
+    );
+  }
 
   if (status === 'loading') {
     return (

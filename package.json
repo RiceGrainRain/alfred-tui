@@ -7,6 +7,9 @@
   "bin": {
     "alfred-tui": "bin/alfred-tui.js"
   },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "build": "esbuild src/index.jsx --bundle --outfile=dist/index.js --format=esm --platform=node --packages=external --jsx=automatic",
     "start": "npm run build && node bin/alfred-tui.js",
