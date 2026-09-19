@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
 import SessionList from './screens/SessionList.jsx';
+import SessionDetail from './screens/SessionDetail.jsx';
 import * as db from './db.js';
 import * as sessionIndex from './session-index.js';
 
@@ -57,13 +58,14 @@ export default function App() {
 
   const top = stack[stack.length - 1];
 
-  // Placeholder detail screens don't yet own their own input handling
-  // (that lands with the real SessionDetail/PlanList/PlanDetail screens);
-  // give them a bare q/Esc-to-go-back until then. SessionList always
-  // handles its own input, so this stays inactive while it's on top.
+  // Placeholder screens (plans, still to come) don't yet own their own
+  // input handling; give them a bare q/Esc-to-go-back until then. Screens
+  // that manage their own useInput (sessionList, sessionDetail) are
+  // excluded so key presses aren't handled twice.
+  const ownsInput = new Set(['sessionList', 'sessionDetail']);
   useInput((input, key) => {
     if (input === 'q' || key.escape) onQuit();
-  }, { isActive: status === 'ready' && top.type !== 'sessionList' });
+  }, { isActive: status === 'ready' && !ownsInput.has(top.type) });
 
   if (status === 'loading') {
     return (
@@ -90,12 +92,7 @@ export default function App() {
   }
 
   if (top.type === 'sessionDetail') {
-    return (
-      <Box flexDirection="column" padding={1}>
-        <Text bold color="cyan">{top.session.sessionId}</Text>
-        <Text dimColor>Detail view coming in a later phase — press q/Esc to go back.</Text>
-      </Box>
-    );
+    return <SessionDetail session={top.session} onBack={pop} />;
   }
 
   if (top.type === 'planList') {

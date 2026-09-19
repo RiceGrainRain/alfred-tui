@@ -144,6 +144,7 @@ function buildProjectsFromCache(showArchived) {
       aiTitle: row.aiTitle || null,
       runtime: row.runtime || 'claude',
       sessionFile: row.sessionFile || null,
+      folder: row.folder,
       name: meta?.name || null,
       starred: meta?.starred || 0,
       archived: meta?.archived || 0,
