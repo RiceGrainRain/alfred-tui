@@ -85,22 +85,31 @@ export default function App() {
     refresh(showArchived);
   };
 
+  // Re-validate the work pane each time before using it: if it was closed
+  // externally, ensureWorkPane() recreates it and returns the new id.
+  const getWorkPane = () => {
+    const id = tmux.ensureWorkPane();
+    workPane.current = id;
+    return id;
+  };
+
   const doOpen = (session) => {
-    tmux.openInWorkPane(workPane.current, session.sessionId, session.projectPath);
+    tmux.openInWorkPane(getWorkPane(), session.sessionId, session.projectPath);
     setLiveSessionId(session.sessionId);
   };
 
   // n on a session: start a brand-new claude session in that session's project
   // directory. Confirms first if the work pane is already busy.
   const onNew = (session) => {
+    const pane = getWorkPane();
     const doNew = () => {
-      tmux.newSessionInWorkPane(workPane.current, session.projectPath);
+      tmux.newSessionInWorkPane(pane, session.projectPath);
       // Clear the live marker — the new session has no id yet. It will
       // appear in the sidebar once it writes its first JSONL line and the
       // cache reconciles on the next refresh.
       setLiveSessionId(null);
     };
-    if (tmux.workPaneBusy(workPane.current)) {
+    if (tmux.workPaneBusy(pane)) {
       setConfirm({
         message: `Start a new claude session in ${session.projectPath}? (will replace what's in the work pane)`,
         onYes: doNew,
@@ -114,7 +123,8 @@ export default function App() {
   // pane is busy (would kill a running claude) or the session is archived.
   const onOpen = (session) => {
     const openWithBusyCheck = () => {
-      if (tmux.workPaneBusy(workPane.current)) {
+      const pane = getWorkPane();
+      if (tmux.workPaneBusy(pane)) {
         setConfirm({
           message: 'A session is already open in the work pane. Replace it?',
           onYes: () => doOpen(session),
