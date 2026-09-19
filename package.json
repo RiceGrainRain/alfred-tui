@@ -1,0 +1,29 @@
+{
+  "name": "alfred-tui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A minimal terminal companion for browsing and archiving Claude Code sessions and plans",
+  "bin": {
+    "alfred-tui": "bin/alfred-tui.js"
+  },
+  "scripts": {
+    "build": "esbuild src/index.jsx --bundle --outfile=dist/index.js --format=esm --platform=node --packages=external --jsx=automatic",
+    "start": "npm run build && node bin/alfred-tui.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.4.1",
+    "ink": "^7.1.1",
+    "marked": "^15.0.12",
+    "marked-terminal": "^7.3.0",
+    "react": "^19.2.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.27.3"
+  },
+  "allowScripts": {
+    "better-sqlite3@12.11.1": true,
+    "esbuild@0.27.7": true
+  }
+}
