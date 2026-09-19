@@ -1,9 +1,12 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
 import SessionList from './screens/SessionList.jsx';
 import SessionDetail from './screens/SessionDetail.jsx';
+import PlanList from './screens/PlanList.jsx';
+import PlanDetail from './screens/PlanDetail.jsx';
 import * as db from './db.js';
 import * as sessionIndex from './session-index.js';
+import { listPlanModePlans, listTrackedProgress } from './plans.js';
 
 export default function App() {
   const { exit } = useApp();
@@ -11,10 +14,13 @@ export default function App() {
   const [progress, setProgress] = useState(null);
   const [projects, setProjects] = useState([]);
   const [showArchived, setShowArchived] = useState(false);
-  const [stack, setStack] = useState([{ type: 'sessionList' }]);
+  const [plans, setPlans] = useState([]);
+  const [rootTab, setRootTab] = useState('sessions'); // sessions | plans
+  const [stack, setStack] = useState([]); // detail views pushed on top of the active root tab
 
   const refresh = useCallback((archivedFlag) => {
     setProjects(sessionIndex.buildProjectsFromCache(archivedFlag));
+    setPlans(listPlanModePlans());
   }, []);
 
   useEffect(() => {
@@ -33,11 +39,16 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const tracked = useMemo(
+    () => listTrackedProgress(projects.map(p => p.projectPath)),
+    [projects]
+  );
+
   const push = (view) => setStack(s => [...s, view]);
-  const pop = () => setStack(s => (s.length > 1 ? s.slice(0, -1) : s));
+  const pop = () => setStack(s => s.slice(0, -1));
 
   const onQuit = () => {
-    if (stack.length > 1) pop();
+    if (stack.length > 0) pop();
     else {
       db.closeDb();
       exit();
@@ -56,13 +67,12 @@ export default function App() {
     refresh(showArchived);
   };
 
-  const top = stack[stack.length - 1];
+  const top = stack[stack.length - 1] || { type: rootTab === 'sessions' ? 'sessionList' : 'planList' };
 
-  // Placeholder screens (plans, still to come) don't yet own their own
-  // input handling; give them a bare q/Esc-to-go-back until then. Screens
-  // that manage their own useInput (sessionList, sessionDetail) are
-  // excluded so key presses aren't handled twice.
-  const ownsInput = new Set(['sessionList', 'sessionDetail']);
+  // Placeholder for anything not yet handling its own input; every current
+  // screen manages its own useInput, so this is effectively a no-op safety
+  // net kept for forward compatibility with future screens.
+  const ownsInput = new Set(['sessionList', 'sessionDetail', 'planList', 'planDetail']);
   useInput((input, key) => {
     if (input === 'q' || key.escape) onQuit();
   }, { isActive: status === 'ready' && !ownsInput.has(top.type) });
@@ -85,7 +95,7 @@ export default function App() {
         onToggleShowArchived={onToggleShowArchived}
         onArchiveToggle={onArchiveToggle}
         onOpen={(session) => push({ type: 'sessionDetail', session })}
-        onSwitchToPlans={() => push({ type: 'planList' })}
+        onSwitchToPlans={() => setRootTab('plans')}
         onQuit={onQuit}
       />
     );
@@ -97,11 +107,19 @@ export default function App() {
 
   if (top.type === 'planList') {
     return (
-      <Box flexDirection="column" padding={1}>
-        <Text bold color="cyan">Plans</Text>
-        <Text dimColor>Coming in a later phase — press q/Esc to go back.</Text>
-      </Box>
+      <PlanList
+        plans={plans}
+        tracked={tracked}
+        onOpenPlan={(plan) => push({ type: 'planDetail', plan })}
+        onOpenTracked={(entry) => push({ type: 'planDetail', trackedEntry: entry })}
+        onSwitchToSessions={() => setRootTab('sessions')}
+        onQuit={onQuit}
+      />
     );
+  }
+
+  if (top.type === 'planDetail') {
+    return <PlanDetail plan={top.plan} trackedEntry={top.trackedEntry} onBack={pop} />;
   }
 
   return null;
