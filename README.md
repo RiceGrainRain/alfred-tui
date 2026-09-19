@@ -27,13 +27,13 @@ its built-in terminal, file browser, stats, auto-update, etc.) is touched or req
 ```bash
 npm install
 npm run build
-npm link   # optional: makes `alfred-tui` available globally
+npm link   # optional: makes `alfred` available globally
 ```
 
 ## Usage
 
 ```bash
-alfred-tui
+alfred
 ```
 
 Keyboard, session list: `↑`/`k` `↓`/`j` move, `Enter` open, `a` archive/unarchive, `r` resume in

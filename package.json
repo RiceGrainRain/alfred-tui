@@ -5,14 +5,14 @@
   "type": "module",
   "description": "A minimal terminal companion for browsing and archiving Claude Code sessions and plans",
   "bin": {
-    "alfred-tui": "bin/alfred-tui.js"
+    "alfred": "bin/alfred.js"
   },
   "engines": {
     "node": ">=22"
   },
   "scripts": {
     "build": "esbuild src/index.jsx --bundle --outfile=dist/index.js --format=esm --platform=node --packages=external --jsx=automatic",
-    "start": "npm run build && node bin/alfred-tui.js",
+    "start": "npm run build && node bin/alfred.js",
     "test": "node --test"
   },
   "dependencies": {
