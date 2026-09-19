@@ -1,4 +1,5 @@
 import React from 'react';
-import { render, Text } from 'ink';
+import { render } from 'ink';
+import App from './App.jsx';
 
-render(<Text>alfred-tui is alive.</Text>);
+render(<App />);
