@@ -1,26 +1,51 @@
 # alfred-tui
 
-A minimal terminal companion for browsing and archiving [Claude Code](https://claude.com/claude-code)
-sessions and plans — no Electron, no GUI, just a keyboard-driven dashboard in your terminal.
+A terminal companion for [Claude Code](https://claude.com/claude-code) sessions and plans,
+inspired by [Switchboard](https://github.com/doctly/switchboard) — but it runs in your real
+terminal via **tmux**, with a keyboard-driven sidebar on the left and the live `claude` session
+on the right.
 
-It reads the same session data as [Switchboard](https://github.com/doctly/switchboard) and shares its
-SQLite cache (`~/.switchboard/switchboard.db`), so archiving a session here also reflects there, and
-vice versa. It does not depend on Switchboard's package — it vendors the small set of pure-Node
-modules that do the actual data work, so there's no Electron, `node-pty`, or `xterm` in the dependency
-tree.
+No Electron, no embedded terminal. It reads `~/.claude/projects` directly and shares Switchboard's
+SQLite cache (`~/.switchboard/switchboard.db`), so archiving/starring here shows up in Switchboard
+and vice versa. It vendors the small set of pure-Node modules that do the data work, so there's no
+Electron, `node-pty`, or `xterm` in the dependency tree.
+
+## How it works
+
+```
+┌──────────────┬───────────────────────────┐
+│ ALFRED       │  claude --resume <id>     │
+│ ▾ p/alfred   │                           │
+│  ● build-tui │  the real Claude Code     │
+│    new sess  │  session runs live here   │
+│ ▾ work/psa   │                           │
+│    add-epss  │  Ctrl-b ← back to sidebar │
+└──────────────┴───────────────────────────┘
+   sidebar (Ink)      work pane (swaps)
+```
+
+- Run `alfred` and it opens a tmux session with the sidebar (left) and an empty work pane (right).
+- Select a session and press **Enter** — `claude --resume <id>` starts in the work pane, in that
+  session's project directory, and focus jumps to it. You're now in a normal Claude Code session.
+- Press **Ctrl-b ←** (tmux) to jump back to the sidebar. Open another session and the work pane
+  **swaps** to it (you'll be asked to confirm if a session is still running there).
+- Killing/swapping a session only detaches the CLI — the transcript persists and is re-resumable.
 
 ## Features
 
-- Browse all Claude Code sessions, grouped by project, sorted by last activity
-- View a session's transcript without raw markdown syntax cluttering the screen
-- Archive / unarchive a session
-- Browse all `~/.claude/plans/*.md` plan-mode plans and read them rendered, not raw
-- Discover and view any project's `plan-tracker.md`/`todos.md` progress checklist
+- Switchboard-style sidebar: project-grouped, scrollable cards with title, star, relative time,
+  message count, and a green ● marker on the session that's currently live.
+- Open any session live in a real terminal pane (Enter).
+- Read a session's transcript without leaving the sidebar (v), markdown rendered — no raw syntax.
+- Archive / unarchive (a) and star / unstar (s) — both sync with Switchboard.
+- Browse `~/.claude/plans/*.md` plan-mode plans plus any project's `plan-tracker.md`/`todos.md`,
+  rendered to readable text.
 
-Sessions and plans are Switchboard's own data — this reads `~/.claude/projects` directly and
-shares Switchboard's SQLite cache at `~/.switchboard/switchboard.db`, so archiving here is
-also reflected there, and vice versa. Nothing else in Switchboard (Projects/Tracks/Schedules,
-its built-in terminal, file browser, stats, auto-update, etc.) is touched or required.
+## Requirements
+
+- **tmux** (tested on 3.7) — `brew install tmux`
+- **Node ≥ 22** (Ink 7 and better-sqlite3 require it)
+- The `claude` CLI on your PATH (for opening sessions live)
 
 ## Install
 
@@ -36,16 +61,25 @@ npm link   # optional: makes `alfred` available globally
 alfred
 ```
 
-Keyboard, session list: `↑`/`k` `↓`/`j` move, `Enter` open, `a` archive/unarchive, `r` resume in
-Claude, `A` toggle showing archived, `/` filter, `Tab`/`p` switch to Plans, `Esc`/`q` quit.
+Run it from a plain shell — it creates/attaches the `alfred` tmux session for you. If you're
+already inside tmux, it splits the current window instead (and quitting then leaves your session
+intact).
 
-Keyboard, session detail: `↑`/`k` `↓`/`j` prev/next turn, `g`/`G` first/last turn, `r` resume in
-Claude, `Esc`/`q` back.
+### Keys
 
-`r` hands the terminal to `claude --resume <sessionId>` and returns to alfred-tui when that
-session exits. Resuming an archived session asks for confirmation first.
+**Sidebar (sessions):** `↑`/`↓` (or `k`/`j`) move · `Enter` open live · `v` view transcript ·
+`a` archive · `s` star · `/` filter · `A` show archived · `Tab`/`p` plans · `q` quit
 
-Keyboard, plans: `↑`/`k` `↓`/`j` move, `Enter` open, `Tab`/`s` switch to Sessions, `Esc`/`q` quit/back.
+**Transcript view:** `↑`/`↓` prev/next turn · `g`/`G` first/last · `o` open live · `q`/`Esc` back
+
+**Plans:** `↑`/`↓` move · `Enter` open · `Tab`/`s` sessions · `q` quit
+
+**Plan detail:** `↑`/`↓` scroll · `space`/`b` page · `g`/`G` top/bottom · `q`/`Esc` back
+
+**tmux:** `Ctrl-b ←` / `Ctrl-b →` move between the sidebar and the work pane.
+
+Quitting with `q` from the sidebar tears down the whole `alfred` tmux session and returns you to
+your shell.
 
 ## Development
 
@@ -54,13 +88,11 @@ npm run build   # bundle src/ to dist/ via esbuild
 npm test        # node --test
 ```
 
-Requires Node ≥22 (Ink 7 and better-sqlite3 both require it).
-
 For development against fixture data instead of your real sessions/plans, override:
 
 ```bash
-SWITCHBOARD_DATA_DIR=/tmp/alfred-tui-dev \
-ALFRED_TUI_CLAUDE_PROJECTS_DIR=/tmp/alfred-tui-dev-projects \
-ALFRED_TUI_CLAUDE_PLANS_DIR=/tmp/alfred-tui-dev-plans \
+SWITCHBOARD_DATA_DIR=/tmp/alfred-dev \
+ALFRED_TUI_CLAUDE_PROJECTS_DIR=/tmp/alfred-dev-projects \
+ALFRED_TUI_CLAUDE_PLANS_DIR=/tmp/alfred-dev-plans \
   npm start
 ```
