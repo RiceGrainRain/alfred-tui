@@ -24,8 +24,19 @@ function renderMarkdown(text) {
   configure();
   if (!text) return '';
   const out = marked.parse(text, { async: false });
-  // marked-terminal appends trailing newlines Ink's <Text> doesn't need.
-  return String(out).replace(/\n+$/, '');
+  // marked-terminal doesn't parse inline markdown inside list items (a known
+  // limitation with marked's new-renderer API), so `**bold**` / `code` survive
+  // there. Strip the leftover bold/inline-code markers — plain text is exactly
+  // what we want on screen. Top-level prose is already converted to ANSI, so
+  // no legitimate markers remain to clobber.
+  return String(out)
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/__(.+?)__/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    // Single-asterisk emphasis (*word*), but not list bullets ("* " has a
+    // space right after the marker, so the \S guard skips them).
+    .replace(/\*(\S[^*\n]*?\S|\S)\*/g, '$1')
+    .replace(/\n+$/, '');
 }
 
 export { renderMarkdown };

@@ -25,6 +25,15 @@ test('renderMarkdown strips raw heading/bold/code/list syntax', () => {
   assert.ok(out.includes('const x = 1;'));
 });
 
+test('renderMarkdown strips inline bold/code inside list items too', () => {
+  // marked-terminal leaves these raw inside list items; renderMarkdown cleans them.
+  const out = renderMarkdown('- a **bold** item with `code`\n- plain\n');
+  assert.ok(!out.includes('**'), 'no bold markers in list items');
+  assert.ok(!out.includes('`'), 'no inline-code backticks in list items');
+  assert.ok(out.includes('bold'));
+  assert.ok(out.includes('code'));
+});
+
 test('renderMarkdown returns empty string for empty input', () => {
   assert.equal(renderMarkdown(''), '');
   assert.equal(renderMarkdown(null), '');

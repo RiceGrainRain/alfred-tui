@@ -1,94 +1,105 @@
 import React, { useMemo, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import Footer from '../components/Footer.jsx';
+import { computeViewport } from '../layout.js';
+import { relativeTime } from '../time.js';
 
 function shortPath(p) {
   const home = process.env.HOME || '';
   return home && p.startsWith(home) ? '~' + p.slice(home.length) : p;
 }
 
-function buildRows(plans, tracked) {
-  const rows = [];
-  if (plans.length) {
-    rows.push({ type: 'section', key: 's:plans', label: 'Plan-mode plans (~/.claude/plans)' });
-    for (const plan of plans) {
-      rows.push({ type: 'plan', key: `p:${plan.filename}`, plan });
-    }
+function truncate(str, max) {
+  if (max <= 1) return '';
+  return str.length <= max ? str : str.slice(0, max - 1) + '…';
+}
+
+function buildFlat(plans, tracked) {
+  const flat = [];
+  for (const plan of plans) flat.push({ kind: 'plan', section: 'Plan-mode plans', plan });
+  for (const entry of tracked) flat.push({ kind: 'tracked', section: 'Tracked progress', entry });
+  return flat;
+}
+
+function PlanCard({ item, selected }) {
+  let rawTitle;
+  let meta;
+  if (item.kind === 'plan') {
+    rawTitle = item.plan.title.replace(/\s+/g, ' ').trim();
+    meta = relativeTime(item.plan.modified);
+  } else {
+    rawTitle = shortPath(item.entry.projectPath);
+    meta = item.entry.plan ? `${item.entry.plan.done}/${item.entry.plan.total} phases` : 'todos';
   }
-  if (tracked.length) {
-    rows.push({ type: 'section', key: 's:tracked', label: 'Tracked progress' });
-    for (const entry of tracked) {
-      rows.push({ type: 'tracked', key: `t:${entry.projectPath}`, entry });
-    }
-  }
-  return rows;
+  // Reserve border (2), paddingX (2), and the right-aligned meta (+1 gap) so
+  // the title never wraps onto a second line.
+  const inner = (process.stdout.columns || 80) - 4 - meta.length - 1;
+  const title = truncate(rawTitle, Math.max(4, inner));
+  return (
+    <Box borderStyle="round" borderColor={selected ? 'cyan' : 'gray'} paddingX={1} flexDirection="column">
+      <Box justifyContent="space-between">
+        <Text bold={selected} color={selected ? 'white' : undefined}>{title}</Text>
+        <Text dimColor> {meta}</Text>
+      </Box>
+    </Box>
+  );
 }
 
 export default function PlanList({ plans, tracked, onOpenPlan, onOpenTracked, onSwitchToSessions, onQuit }) {
   const [selected, setSelected] = useState(0);
-  const rows = useMemo(() => buildRows(plans, tracked), [plans, tracked]);
-  const openableIndexes = useMemo(
-    () => rows.map((r, i) => (r.type === 'section' ? -1 : i)).filter(i => i !== -1),
-    [rows]
-  );
-  const clampedSelected = openableIndexes.includes(selected) ? selected : (openableIndexes[0] ?? -1);
+  const flat = useMemo(() => buildFlat(plans, tracked), [plans, tracked]);
+  const sel = Math.max(0, Math.min(selected, flat.length - 1));
+
+  const rows = process.stdout.rows || 24;
+  const budget = Math.max(4, rows - 3);
+  const perPageEstimate = Math.max(2, Math.floor(budget / 3));
+  const { start } = computeViewport(flat.length, sel, perPageEstimate);
 
   useInput((input, key) => {
-    if (input === 'q' || key.escape) {
-      onQuit();
-      return;
-    }
-    if (key.tab || input === 's') {
-      onSwitchToSessions();
-      return;
-    }
-    const pos = openableIndexes.indexOf(clampedSelected);
-    if ((key.downArrow || input === 'j') && pos !== -1) {
-      const next = openableIndexes[Math.min(pos + 1, openableIndexes.length - 1)];
-      if (next !== undefined) setSelected(next);
-      return;
-    }
-    if ((key.upArrow || input === 'k') && pos !== -1) {
-      const prev = openableIndexes[Math.max(pos - 1, 0)];
-      if (prev !== undefined) setSelected(prev);
-      return;
-    }
-    if (key.return && clampedSelected !== -1) {
-      const row = rows[clampedSelected];
-      if (row.type === 'plan') onOpenPlan(row.plan);
-      else if (row.type === 'tracked') onOpenTracked(row.entry);
+    if (input === 'q' || key.escape) { onQuit(); return; }
+    if (key.tab || input === 's') { onSwitchToSessions(); return; }
+    if (key.downArrow || input === 'j') { setSelected(Math.min(sel + 1, flat.length - 1)); return; }
+    if (key.upArrow || input === 'k') { setSelected(Math.max(sel - 1, 0)); return; }
+    if (key.return) {
+      const item = flat[sel];
+      if (!item) return;
+      if (item.kind === 'plan') onOpenPlan(item.plan);
+      else onOpenTracked(item.entry);
     }
   });
 
+  let lastSection = null;
+  let used = 0;
+  const items = [];
+  for (let i = start; i < flat.length; i++) {
+    const item = flat[i];
+    const needHeader = item.section !== lastSection;
+    const headerCost = needHeader ? (items.length ? 2 : 1) : 0;
+    if (used + headerCost + 3 > budget) break;
+    if (needHeader) {
+      items.push(
+        <Box key={`s:${item.section}:${i}`} marginTop={items.length ? 1 : 0}>
+          <Text color="blue">▾ </Text><Text bold color="blueBright">{item.section}</Text>
+        </Box>
+      );
+      used += headerCost;
+      lastSection = item.section;
+    }
+    items.push(<PlanCard key={i} item={item} selected={i === sel} />);
+    used += 3;
+  }
+
   return (
     <Box flexDirection="column" flexGrow={1}>
-      <Box paddingX={1}>
-        <Text bold color="cyan">Plans</Text>
+      <Box paddingX={1} justifyContent="space-between">
+        <Text bold color="cyan">ALFRED</Text>
+        <Text dimColor>Plans · {flat.length}</Text>
       </Box>
-      <Box flexDirection="column" paddingX={1} flexGrow={1}>
-        {rows.length === 0 && <Text dimColor>No plans found.</Text>}
-        {rows.map((row, i) => {
-          if (row.type === 'section') {
-            return (
-              <Box key={row.key} marginTop={1}>
-                <Text bold color="yellow">{row.label}</Text>
-              </Box>
-            );
-          }
-          const isSelected = i === clampedSelected;
-          const label = row.type === 'plan'
-            ? row.plan.title
-            : `${shortPath(row.entry.projectPath)}${row.entry.plan ? `  (${row.entry.plan.done}/${row.entry.plan.total} phases)` : ''}`;
-          return (
-            <Box key={row.key}>
-              <Text color={isSelected ? 'black' : undefined} backgroundColor={isSelected ? 'cyan' : undefined}>
-                {'  '}{label}
-              </Text>
-            </Box>
-          );
-        })}
+      <Box flexDirection="column" flexGrow={1}>
+        {flat.length === 0 && <Box paddingX={1}><Text dimColor>No plans found.</Text></Box>}
+        {items}
       </Box>
-      <Footer hints="↑/k ↓/j move  Enter open  Tab sessions  q quit" />
+      <Footer hints="↑↓ move · ⏎ open · ⇥ sessions · q quit" />
     </Box>
   );
 }

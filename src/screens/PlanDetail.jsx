@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import Footer from '../components/Footer.jsx';
 import { readPlanModePlan } from '../plans.js';
@@ -36,32 +36,51 @@ function TrackedView({ entry }) {
 }
 
 export default function PlanDetail({ plan, trackedEntry, onBack }) {
-  const rendered = useMemo(() => {
-    if (!plan) return '';
-    const content = readPlanModePlan(plan.filename);
-    return renderMarkdown(content);
+  const [offset, setOffset] = useState(0);
+
+  const lines = useMemo(() => {
+    if (!plan) return [];
+    return renderMarkdown(readPlanModePlan(plan.filename)).split('\n');
   }, [plan]);
 
+  const rows = process.stdout.rows || 24;
+  const pageHeight = Math.max(3, rows - 3); // title (1) + footer (1) + slack
+  const maxOffset = Math.max(0, lines.length - pageHeight);
+  const off = Math.min(offset, maxOffset);
+
   useInput((input, key) => {
-    if (input === 'q' || key.escape) onBack();
+    if (input === 'q' || key.escape) { onBack(); return; }
+    if (!plan) return;
+    if (key.downArrow || input === 'j') { setOffset(o => Math.min(o + 1, maxOffset)); return; }
+    if (key.upArrow || input === 'k') { setOffset(o => Math.max(o - 1, 0)); return; }
+    if (key.pageDown || input === ' ') { setOffset(o => Math.min(o + pageHeight, maxOffset)); return; }
+    if (key.pageUp || input === 'b') { setOffset(o => Math.max(o - pageHeight, 0)); return; }
+    if (input === 'g') { setOffset(0); return; }
+    if (input === 'G') { setOffset(maxOffset); return; }
   });
+
+  if (trackedEntry) {
+    return (
+      <Box flexDirection="column" flexGrow={1}>
+        <Box paddingX={1} flexGrow={1}><TrackedView entry={trackedEntry} /></Box>
+        <Footer hints="q/Esc back" />
+      </Box>
+    );
+  }
+
+  const visible = lines.slice(off, off + pageHeight);
+  const more = maxOffset > 0 ? `  (${off + 1}-${off + visible.length}/${lines.length})` : '';
 
   return (
     <Box flexDirection="column" flexGrow={1}>
-      {plan && (
-        <Box flexDirection="column" paddingX={1} flexGrow={1}>
-          <Text bold color="cyan">{plan.title}</Text>
-          <Box marginTop={1}>
-            <Text>{rendered}</Text>
-          </Box>
-        </Box>
-      )}
-      {trackedEntry && (
-        <Box paddingX={1} flexGrow={1}>
-          <TrackedView entry={trackedEntry} />
-        </Box>
-      )}
-      <Footer hints="q/Esc back" />
+      <Box paddingX={1} justifyContent="space-between">
+        <Text bold color="cyan" wrap="truncate-end">{plan ? plan.title : ''}</Text>
+        <Text dimColor>{more}</Text>
+      </Box>
+      <Box flexDirection="column" paddingX={1} flexGrow={1}>
+        {visible.map((l, i) => <Text key={off + i}>{l || ' '}</Text>)}
+      </Box>
+      <Footer hints="↑↓ scroll · space/b page · g/G top/bottom · q/Esc back" />
     </Box>
   );
 }
