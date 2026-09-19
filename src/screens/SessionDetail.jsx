@@ -9,7 +9,7 @@ function sessionLabel(session) {
   return session.name || session.aiTitle || session.summary || session.sessionId;
 }
 
-export default function SessionDetail({ session, onBack, onResume }) {
+export default function SessionDetail({ session, onBack, onOpen }) {
   const [index, setIndex] = useState(0);
 
   const { turns, error } = useMemo(() => {
@@ -44,8 +44,8 @@ export default function SessionDetail({ session, onBack, onResume }) {
       setIndex(Math.max(turns.length - 1, 0));
       return;
     }
-    if (input === 'r') {
-      onResume(session);
+    if (input === 'o' || key.return) {
+      onOpen(session);
       return;
     }
   });
@@ -77,7 +77,7 @@ export default function SessionDetail({ session, onBack, onResume }) {
         {turns.length === 0 && <Text dimColor>No messages in this transcript.</Text>}
         {turn && <Text>{rendered}</Text>}
       </Box>
-      <Footer hints="↑/k prev  ↓/j next  g first  G last  r resume  q/Esc back" />
+      <Footer hints="↑/k prev  ↓/j next  g first  G last  o open live  q/Esc back" />
     </Box>
   );
 }

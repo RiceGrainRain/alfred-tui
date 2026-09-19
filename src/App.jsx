@@ -1,18 +1,17 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
 import SessionList from './screens/SessionList.jsx';
 import SessionDetail from './screens/SessionDetail.jsx';
 import PlanList from './screens/PlanList.jsx';
 import PlanDetail from './screens/PlanDetail.jsx';
-import ConfirmResume from './components/ConfirmResume.jsx';
+import Confirm from './components/Confirm.jsx';
 import * as db from './db.js';
 import * as sessionIndex from './session-index.js';
+import * as tmux from './tmux.js';
 import { listPlanModePlans, listTrackedProgress } from './plans.js';
-import { resumeInClaude } from './resume.js';
 
 export default function App() {
-  const { exit, suspendTerminal } = useApp();
-  const [pendingResume, setPendingResume] = useState(null);
+  const { exit } = useApp();
   const [status, setStatus] = useState('loading'); // loading | ready | error
   const [error, setError] = useState(null);
   const [progress, setProgress] = useState(null);
@@ -21,6 +20,9 @@ export default function App() {
   const [plans, setPlans] = useState([]);
   const [rootTab, setRootTab] = useState('sessions'); // sessions | plans
   const [stack, setStack] = useState([]); // detail views pushed on top of the active root tab
+  const [liveSessionId, setLiveSessionId] = useState(null);
+  const [confirm, setConfirm] = useState(null); // { message, onYes }
+  const workPane = useRef('');
 
   const refresh = useCallback((archivedFlag) => {
     setProjects(sessionIndex.buildProjectsFromCache(archivedFlag));
@@ -28,8 +30,6 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    // Deferred one tick so the "loading" text has a chance to paint before
-    // the (synchronous) cold-start/reconcile scan blocks the event loop.
     const timer = setTimeout(() => {
       try {
         if (!db.isCachePopulated()) {
@@ -37,6 +37,7 @@ export default function App() {
         } else {
           sessionIndex.reconcileCacheFromFilesystem();
         }
+        workPane.current = tmux.ensureWorkPane();
         refresh(showArchived);
         setStatus('ready');
       } catch (err) {
@@ -57,11 +58,14 @@ export default function App() {
   const pop = () => setStack(s => s.slice(0, -1));
 
   const onQuit = () => {
-    if (stack.length > 0) pop();
-    else {
-      db.closeDb();
-      exit();
+    if (stack.length > 0) { pop(); return; }
+    if (tmux.ownsSession()) {
+      tmux.killOwnedSession(); // tears down both panes and detaches
+    } else {
+      tmux.killWorkPane(workPane.current);
     }
+    db.closeDb();
+    exit();
   };
 
   const onToggleShowArchived = () => {
@@ -76,34 +80,55 @@ export default function App() {
     refresh(showArchived);
   };
 
-  const doResume = async (session) => {
-    await suspendTerminal(() => resumeInClaude(session.sessionId));
-    sessionIndex.reconcileCacheFromFilesystem();
+  const onStarToggle = (session) => {
+    db.toggleStar(session.sessionId);
     refresh(showArchived);
   };
 
-  const onResume = (session) => {
-    if (session.archived) setPendingResume(session);
-    else doResume(session);
+  const doOpen = (session) => {
+    tmux.openInWorkPane(workPane.current, session.sessionId, session.projectPath);
+    setLiveSessionId(session.sessionId);
   };
+
+  // Enter on a session: open it live in the work pane. Confirm first if the
+  // pane is busy (would kill a running claude) or the session is archived.
+  const onOpen = (session) => {
+    const openWithBusyCheck = () => {
+      if (tmux.workPaneBusy(workPane.current)) {
+        setConfirm({
+          message: 'A session is already open in the work pane. Replace it?',
+          onYes: () => doOpen(session),
+        });
+      } else {
+        doOpen(session);
+      }
+    };
+    if (session.archived) {
+      setConfirm({
+        message: `"${session.name || session.summary || session.sessionId}" is archived. Open it anyway?`,
+        onYes: openWithBusyCheck,
+      });
+    } else {
+      openWithBusyCheck();
+    }
+  };
+
+  const onView = (session) => push({ type: 'sessionDetail', session });
 
   const top = stack[stack.length - 1] || { type: rootTab === 'sessions' ? 'sessionList' : 'planList' };
 
-  // Placeholder for anything not yet handling its own input; every current
-  // screen manages its own useInput, so this is effectively a no-op safety
-  // net kept for forward compatibility with future screens.
   const ownsInput = new Set(['sessionList', 'sessionDetail', 'planList', 'planDetail']);
   useInput((input, key) => {
     if (input === 'q' || key.escape) {
       if (status === 'error') exit();
       else onQuit();
     }
-  }, { isActive: status === 'error' || (status === 'ready' && !pendingResume && !ownsInput.has(top.type)) });
+  }, { isActive: status === 'error' || (status === 'ready' && !confirm && !ownsInput.has(top.type)) });
 
   if (status === 'error') {
     return (
       <Box flexDirection="column" padding={1}>
-        <Text color="red" bold>alfred-tui hit a startup error:</Text>
+        <Text color="red" bold>alfred hit a startup error:</Text>
         <Text color="red">{error}</Text>
         <Box marginTop={1}>
           <Text dimColor>Check that ~/.claude/projects and ~/.switchboard are readable. Press q/Esc to exit.</Text>
@@ -122,12 +147,12 @@ export default function App() {
     );
   }
 
-  if (pendingResume) {
+  if (confirm) {
     return (
-      <ConfirmResume
-        session={pendingResume}
-        onConfirm={() => { const s = pendingResume; setPendingResume(null); doResume(s); }}
-        onCancel={() => setPendingResume(null)}
+      <Confirm
+        message={confirm.message}
+        onYes={() => { const c = confirm; setConfirm(null); c.onYes(); }}
+        onNo={() => setConfirm(null)}
       />
     );
   }
@@ -137,10 +162,12 @@ export default function App() {
       <SessionList
         projects={projects}
         showArchived={showArchived}
+        liveSessionId={liveSessionId}
         onToggleShowArchived={onToggleShowArchived}
         onArchiveToggle={onArchiveToggle}
-        onResume={onResume}
-        onOpen={(session) => push({ type: 'sessionDetail', session })}
+        onStarToggle={onStarToggle}
+        onOpen={onOpen}
+        onView={onView}
         onSwitchToPlans={() => setRootTab('plans')}
         onQuit={onQuit}
       />
@@ -148,7 +175,7 @@ export default function App() {
   }
 
   if (top.type === 'sessionDetail') {
-    return <SessionDetail session={top.session} onBack={pop} onResume={onResume} />;
+    return <SessionDetail session={top.session} onBack={pop} onOpen={onOpen} />;
   }
 
   if (top.type === 'planList') {

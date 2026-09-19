@@ -137,6 +137,10 @@ const stmts = {
     INSERT INTO session_meta (sessionId, name) VALUES (?, ?)
     ON CONFLICT(sessionId) DO UPDATE SET name = excluded.name
   `),
+  upsertStar: db.prepare(`
+    INSERT INTO session_meta (sessionId, starred) VALUES (?, 1)
+    ON CONFLICT(sessionId) DO UPDATE SET starred = CASE WHEN starred = 1 THEN 0 ELSE 1 END
+  `),
   cacheCount: db.prepare('SELECT COUNT(*) as cnt FROM session_cache'),
   cacheGetAll: db.prepare(`
     SELECT sessionId, folder, projectPath, summary, firstPrompt, created, modified,
@@ -194,6 +198,12 @@ function setName(sessionId, name) {
 
 function setArchived(sessionId, archived) {
   stmts.upsertArchived.run(sessionId, archived ? 1 : 0);
+}
+
+function toggleStar(sessionId) {
+  stmts.upsertStar.run(sessionId);
+  const row = stmts.get.get(sessionId);
+  return row.starred;
 }
 
 function isCachePopulated() {
@@ -264,7 +274,7 @@ function closeDb() {
 }
 
 export {
-  getMeta, getAllMeta, setName, setArchived,
+  getMeta, getAllMeta, setName, setArchived, toggleStar,
   isCachePopulated, getAllCached, getCachedByFolder, getCachedSession, upsertCachedSessions,
   deleteCachedSession, deleteCachedFolder,
   getAllFolderMeta, setFolderMeta,

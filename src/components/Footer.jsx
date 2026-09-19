@@ -3,8 +3,8 @@ import { Box, Text } from 'ink';
 
 export default function Footer({ hints }) {
   return (
-    <Box borderStyle="single" borderColor="gray" paddingX={1}>
-      <Text dimColor>{hints}</Text>
+    <Box paddingX={1}>
+      <Text dimColor wrap="truncate-end">{hints}</Text>
     </Box>
   );
 }
