@@ -33,8 +33,8 @@ Electron, `node-pty`, or `xterm` in the dependency tree.
 
 ## Features
 
-- Switchboard-style sidebar: project-grouped, scrollable cards with title, star, relative time,
-  message count, and a green ● marker on the session that's currently live.
+- Switchboard-style sidebar: project-grouped (with per-group counts), scrollable cards showing
+  title, star, relative time, message count, and a green ● live marker on the open session.
 - Open any session live in a real terminal pane (Enter).
 - Read a session's transcript without leaving the sidebar (v), markdown rendered — no raw syntax.
 - Archive / unarchive (a) and star / unstar (s) — both sync with Switchboard.

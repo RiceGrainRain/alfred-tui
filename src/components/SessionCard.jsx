@@ -36,9 +36,10 @@ export default function SessionCard({ session, selected, live }) {
         <Text color={session.starred ? 'yellow' : 'gray'}>{star}</Text>
       </Box>
       <Box>
-        <Text dimColor>
-          {'  '}{meta}{session.archived ? '  [archived]' : ''}{live ? '  · live' : ''}
-        </Text>
+        <Text>{'  '}</Text>
+        <Text dimColor>{meta}</Text>
+        {session.archived ? <Text color="yellow" dimColor> · archived</Text> : null}
+        {live ? <Text color="green" bold> · live</Text> : null}
       </Box>
     </Box>
   );

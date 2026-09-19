@@ -93,7 +93,7 @@ export default function PlanList({ plans, tracked, onOpenPlan, onOpenTracked, on
     <Box flexDirection="column" flexGrow={1}>
       <Box paddingX={1} justifyContent="space-between">
         <Text bold color="cyan">ALFRED</Text>
-        <Text dimColor>Plans · {flat.length}</Text>
+        <Text dimColor>{flat.length} plan{flat.length === 1 ? '' : 's'}</Text>
       </Box>
       <Box flexDirection="column" flexGrow={1}>
         {flat.length === 0 && <Box paddingX={1}><Text dimColor>No plans found.</Text></Box>}

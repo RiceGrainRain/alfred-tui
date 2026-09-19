@@ -41,6 +41,12 @@ export default function SessionList({
   const flat = useMemo(() => buildFlat(projects, filter), [projects, filter]);
   const sel = Math.max(0, Math.min(selected, flat.length - 1));
 
+  const groupCounts = useMemo(() => {
+    const counts = new Map();
+    for (const { label } of flat) counts.set(label, (counts.get(label) || 0) + 1);
+    return counts;
+  }, [flat]);
+
   // Chrome above/below the list: header (1) + search bar (3, bordered) +
   // footer (1). Everything else is the scrollable card list. Cards are 4
   // lines; a group header is 1 line (+1 spacer between groups). We pick a
@@ -84,6 +90,7 @@ export default function SessionList({
       items.push(
         <Box key={`h:${label}:${i}`} marginTop={items.length ? 1 : 0}>
           <Text color="blue">▾ </Text><Text bold color="blueBright">{label}</Text>
+          <Text dimColor>  {groupCounts.get(label)}</Text>
         </Box>
       );
       used += headerCost;
@@ -105,7 +112,7 @@ export default function SessionList({
       <Box paddingX={1} justifyContent="space-between">
         <Text bold color="cyan">ALFRED</Text>
         <Text dimColor>
-          Sessions{showArchived ? ' (archived shown)' : ''} · {flat.length}
+          {flat.length} session{flat.length === 1 ? '' : 's'}{showArchived ? ' · archived' : ''}
         </Text>
       </Box>
       <SearchBar active={filterMode} value={filter} />
@@ -115,8 +122,8 @@ export default function SessionList({
       </Box>
       <Footer hints={
         filterMode
-          ? 'type to filter · Enter/Esc done'
-          : '↑↓ move · ⏎ open · v view · a arch · s star · / find · A arch-show · ⇥ plans · q quit'
+          ? 'type to filter · ⏎/Esc done'
+          : '↑↓ move · ⏎ open · v view · a arch · s star · / find · A all · ⇥ plans · q quit'
       } />
     </Box>
   );
