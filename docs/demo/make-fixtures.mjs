@@ -140,12 +140,51 @@ const repo = (rel, files, changes) => {
   for (const [f, s] of Object.entries(changes)) write(path.join(cwd, f), s);
 };
 repo('acme/api', {
-  'README.md': '# acme api\n',
+  'README.md': '# acme api\n\nOrders and payments API.\n',
   'package.json': '{ "name": "acme-api", "version": "1.4.0" }\n',
   'src/server.ts': "import express from 'express';\nimport { orders } from './routes/orders';\n\nconst app = express();\napp.use('/v1/orders', orders);\napp.listen(3000);\n",
   'src/routes/orders.ts': "import { Router } from 'express';\nexport const orders = Router();\norders.get('/', (req, res) => res.json([]));\n",
   'test/orders.test.ts': "test('lists orders', () => {});\n",
 }, {
+  'README.md': `# acme api
+
+Orders and payments API.
+
+---
+
+## Rate limits
+
+Every request is rate limited per API key using a token bucket backed by
+Redis. Limits depend on the key's plan tier (\`config/tiers.yaml\`):
+
+| Tier       | Requests/min |
+| ---------- | ------------ |
+| free       | 60           |
+| pro        | 600          |
+| enterprise | 6000         |
+
+When a key runs out of tokens the API responds with \`429 Too Many Requests\`
+and a \`Retry-After\` header (seconds).
+
+\`\`\`bash
+curl -i -H "Authorization: Bearer $ACME_KEY" https://api.acme.test/v1/orders
+# HTTP/1.1 429 Too Many Requests
+# Retry-After: 12
+\`\`\`
+
+## Development
+
+\`\`\`bash
+npm install
+npm run dev     # http://localhost:3000
+npm test
+\`\`\`
+
+## Deploying
+
+Merges to \`main\` deploy to staging automatically. Promote to production
+from the release dashboard once the smoke tests pass.
+`,
   'src/server.ts': "import express from 'express';\nimport { orders } from './routes/orders';\nimport { rateLimit } from './middleware/rate-limit';\n\nconst app = express();\napp.use('/v1/orders', rateLimit({ perMinute: 100 }), orders);\napp.listen(3000);\n",
   'src/middleware/rate-limit.ts': "export function rateLimit({ perMinute }: { perMinute: number }) {\n  return (req, res, next) => next();\n}\n",
   'config/tiers.yaml': 'free: 60\npro: 600\nenterprise: 6000\n',
@@ -159,28 +198,70 @@ repo('acme/web', {
 repo('side/dotfiles', { '.zshrc': 'export EDITOR=nvim\n' }, {});
 
 // ── Stub `claude`, neutral shell + tmux config ───────────────────────────
-write(path.join(root, 'bin', 'claude'), `#!/bin/sh
-clear
-printf '\\033[38;5;173m╭──────────────────────────────────────────╮\\033[0m\\n'
-printf '\\033[38;5;173m│\\033[0m ✻ Welcome to Claude Code                  \\033[38;5;173m│\\033[0m\\n'
-printf '\\033[38;5;173m│\\033[0m   cwd: %-34s\\033[38;5;173m│\\033[0m\\n' "$(basename "$(pwd)")"
-printf '\\033[38;5;173m╰──────────────────────────────────────────╯\\033[0m\\n\\n'
-case "$1" in
-  --resume) printf '\\033[2m  Resumed session %s\\033[0m\\n\\n' "$(echo "$2" | cut -c1-8)"
-            printf '> Make the limit configurable per plan tier.\\n\\n'
-            printf '\\033[38;5;173m⏺\\033[0m Done — limits now come from config/tiers.yaml.\\n'
-            printf '  All 48 tests pass.\\n\\n' ;;
-esac
-printf '\\033[2m──────────────────────────────────────────\\033[0m\\n> '
-exec cat >/dev/null
+write(path.join(root, 'bin', 'claude'), `#!/usr/bin/env node
+// Stand-in for the claude CLI: draws a static Claude Code-style screen.
+const { basename } = require('path');
+const project = basename(process.cwd());
+const resumed = process.argv[2] === '--resume';
+const e = (c, s) => \`\\x1b[\${c}m\${s}\\x1b[0m\`;
+const dim = s => e('2', s), bold = s => e('1', s), orange = s => e('38;5;209', s);
+
+function draw() {
+  const w = process.stdout.columns || 80;
+  const rule = dim('─'.repeat(w));
+  const out = resumed ? [
+    '',
+    '❯ ' + 'Looks good. Make the limit configurable per plan tier.',
+    '',
+    '● ' + "I'll move the limits into config so each tier can have its own.",
+    '',
+    '  ' + dim('Read 3 files, edited 2 files, ran 1 shell command'),
+    '',
+    '● ' + 'Done — limits now come from ' + orange('config/tiers.yaml') + ':',
+    '',
+    '  ' + bold('Tier') + '         ' + bold('Requests/min'),
+    '  free         60',
+    '  pro          600',
+    '  enterprise   6000',
+    '',
+    '  ' + orange('src/middleware/rate-limit.ts') + ' reads the tier off the API key and',
+    '  returns ' + orange('429') + ' with a ' + orange('Retry-After') + ' header when the bucket is empty.',
+    '  All 48 tests pass.',
+    '',
+    '✻ ' + dim('Cooked for 2m 14s'),
+  ] : [
+    '',
+    orange(' ✻ ') + bold('Welcome to Claude Code'),
+    '',
+    dim('   /help for help, /status for your current setup'),
+    '',
+    dim('   cwd: ~/code/') + dim(project),
+  ];
+  const footer = [
+    '',
+    rule,
+    '❯ \\x1b[7m \\x1b[0m',
+    rule,
+    '  ' + e('48;5;209;38;5;235', \` \${project} \`) + e('48;5;150;38;5;235', ' ⎇ main ') + e('48;5;117;38;5;235', ' Opus 5.5 '),
+    '  ' + orange('⏵⏵ auto mode on') + dim(' (shift+tab to cycle)'),
+  ];
+  const rows = process.stdout.rows || 24;
+  const pad = Math.max(0, rows - out.length - footer.length);
+  process.stdout.write('\\x1b[2J\\x1b[H\\x1b[?25l' + out.join('\\n') + '\\n'.repeat(pad) + footer.join('\\n'));
+}
+process.stdout.write('\\x1b]2;✳ ' + project + '\\x07');
+draw();
+process.stdout.on('resize', draw);
+process.stdin.setRawMode?.(true);
+process.stdin.resume();
 `, 0o755);
 write(path.join(home, '.zshrc'), "PROMPT='%F{blue}%1~%f %# '\nunsetopt PROMPT_SP\n");
+// tmux defaults (green status bar, green active border), except the status
+// line's right side, which would otherwise show the machine's hostname.
 write(path.join(home, '.tmux.conf'), [
   'set -g default-shell /bin/zsh',
   'set -g default-terminal "tmux-256color"',
-  'set -g status off',
-  'set -g pane-border-lines heavy',
-  'set -g pane-active-border-style fg=colour173',
+  `set -g status-right '"✳ alfred demo" %H:%M %d-%b-%y'`,
   '',
 ].join('\n'));
 
