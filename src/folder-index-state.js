@@ -1,4 +1,5 @@
-// Vendored verbatim (ESM-converted) from switchboard/folder-index-state.js.
+// Freshness check for a ~/.claude/projects folder: newest mtime across the
+// folder and its .jsonl files.
 import fs from 'fs';
 import path from 'path';
 

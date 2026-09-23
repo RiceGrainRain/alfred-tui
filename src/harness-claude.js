@@ -1,13 +1,6 @@
-// Vendored + trimmed (ESM-converted) from switchboard/harnesses/claude.js.
-//
 // Owns everything specific to how the `claude` CLI stores sessions on disk:
 //   - transcript layout: ~/.claude/projects/<encoded-project>/<sessionId>.jsonl
 //   - transcript format: one JSON object per line
-//
-// Launch-flag building, activity signalling (OSC title/notification parsing),
-// and fork-detection are switchboard concerns (launching/monitoring a live
-// PTY session) that alfred-tui, a passive read/archive viewer, doesn't need
-// and has deliberately not vendored.
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -15,7 +8,7 @@ import crypto from 'crypto';
 import { scanLines } from './jsonl-scan.js';
 
 // Overridable so tests can point at a fixture directory instead of the
-// user's real ~/.claude/projects, mirroring db.js's SWITCHBOARD_DATA_DIR.
+// user's real ~/.claude/projects, mirroring db.js's ALFRED_DATA_DIR.
 function sessionsRoot() {
   if (process.env.ALFRED_TUI_CLAUDE_PROJECTS_DIR) {
     return path.resolve(process.env.ALFRED_TUI_CLAUDE_PROJECTS_DIR);

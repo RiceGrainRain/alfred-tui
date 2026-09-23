@@ -1,4 +1,4 @@
-// Relative time strings matching Switchboard's wording: "just now", "52m ago",
+// Relative time strings: "just now", "52m ago",
 // "3h ago", "1d ago", then an absolute date past a week.
 function relativeTime(iso, now = Date.now()) {
   if (!iso) return '';

@@ -1,5 +1,3 @@
-// Vendored verbatim (ESM-converted) from switchboard/jsonl-scan.js.
-//
 // Session .jsonl files routinely reach tens or hundreds of MB. Reading one into
 // a JS string costs ~2x its size in RAM (V8 stores non-latin1 text as UTF-16),
 // so any code that wants the first line — or one field — must not use

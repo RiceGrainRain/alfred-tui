@@ -1,5 +1,4 @@
-// Ported from switchboard/test/plan-parser.test.js — the vendored module's
-// logic is unchanged, so its own test suite applies unchanged too.
+// Tests for the checklist/phase parser behind the Plans tab.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 

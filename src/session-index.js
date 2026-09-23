@@ -1,14 +1,7 @@
-// Adapted from switchboard/session-cache.js.
-//
-// Switchboard's original module needs an init(ctx) call wiring in Electron
-// bits (activeSessions, getMainWindow, a worker_threads-based cold-start
-// scan). alfred-tui has none of that — no live PTY sessions, no renderer to
-// notify — so this imports db.js and harness-claude.js directly, and
-// replaces the worker-based populateCacheViaWorker() with a plain
-// synchronous loop (populateCacheSync): a CLI can afford to block briefly on
-// a cold start, which removes the need to vendor workers/scan-projects.js
-// at all. hiddenProjects/disabledHarnesses filtering is kept so a project
-// hidden in Switchboard's settings stays hidden here too.
+// Session-list index: scans ~/.claude/projects into the SQLite cache in db.js
+// and serves the sidebar from it. Cold starts use a plain synchronous loop
+// (populateCacheSync) — a CLI can afford to block briefly, so no worker
+// threads. hiddenProjects/disabledHarnesses settings are honored.
 import fs from 'fs';
 import path from 'path';
 import { getFolderIndexMtimeMs } from './folder-index-state.js';
@@ -106,8 +99,7 @@ function reconcileCacheFromFilesystem() {
   }
 }
 
-/** Cold-start full scan, synchronous (see file header for why this replaces
- * switchboard's worker-thread populateCacheViaWorker). */
+/** Cold-start full scan, synchronous (see file header). */
 function populateCacheSync(onProgress) {
   const folders = listAllFolders();
   for (let i = 0; i < folders.length; i++) {

@@ -1,14 +1,17 @@
 # alfred-tui
 
-A terminal companion for [Claude Code](https://claude.com/claude-code) sessions and plans,
-inspired by [Switchboard](https://github.com/doctly/switchboard) — but it runs in your real
-terminal via **tmux**, with a keyboard-driven sidebar on the left and the live `claude` session
-on the right.
+A terminal companion for [Claude Code](https://claude.com/claude-code) sessions and plans. It
+runs in your real terminal via **tmux**, with a keyboard-driven sidebar on the left and the live
+`claude` session on the right.
 
-No Electron, no embedded terminal. It reads `~/.claude/projects` directly and shares Switchboard's
-SQLite cache (`~/.switchboard/switchboard.db`), so archiving/starring here shows up in Switchboard
-and vice versa. It vendors the small set of pure-Node modules that do the data work, so there's no
-Electron, `node-pty`, or `xterm` in the dependency tree.
+![alfred demo](docs/demo.gif)
+
+No Electron, no embedded terminal. It reads `~/.claude/projects` directly and keeps archive/star
+state plus a small session cache in SQLite (`~/.alfred/alfred.db`).
+
+| Sessions | Transcript | Plans | Git |
+| --- | --- | --- | --- |
+| ![sessions](docs/sessions.png) | ![transcript](docs/transcript.png) | ![plans](docs/plans.png) | ![git](docs/git.png) |
 
 ## How it works
 
@@ -36,11 +39,11 @@ Electron, `node-pty`, or `xterm` in the dependency tree.
 
 ## Features
 
-- Switchboard-style sidebar: project-grouped (with per-group counts), scrollable cards showing
+- Sidebar: project-grouped (with per-group counts), scrollable cards showing
   title, star, relative time, message count, and a green ● live marker on the open session.
 - Open any session live in a real terminal pane (`Enter` to resume, `n` to start a new session in the same project directory).
 - Read a session's transcript without leaving the sidebar (v), markdown rendered — no raw syntax.
-- Archive / unarchive (a) and star / unstar (s) — both sync with Switchboard.
+- Archive / unarchive (a) and star / unstar (s).
 - Browse `~/.claude/plans/*.md` plan-mode plans plus any project's `plan-tracker.md`/`todos.md`,
   rendered to readable text — or open any plan straight into a work tab (`o`, or double-click then `o`)
   to edit it in `nvim`.
@@ -114,8 +117,15 @@ npm test        # node --test
 For development against fixture data instead of your real sessions/plans, override:
 
 ```bash
-SWITCHBOARD_DATA_DIR=/tmp/alfred-dev \
+ALFRED_DATA_DIR=/tmp/alfred-dev \
 ALFRED_TUI_CLAUDE_PROJECTS_DIR=/tmp/alfred-dev-projects \
 ALFRED_TUI_CLAUDE_PLANS_DIR=/tmp/alfred-dev-plans \
   npm start
 ```
+
+The demo GIF and screenshots in `docs/` are generated from fake fixture data — see
+[`docs/demo/`](docs/demo/) (`docs/demo/record.sh`, requires [vhs](https://github.com/charmbracelet/vhs)).
+
+## License
+
+Portions of `src/` are derived from MIT-licensed code — see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

@@ -1,5 +1,3 @@
-// Vendored verbatim (ESM-converted) from switchboard/encode-project-path.js.
-//
 // Mirrors Claude CLI's project-folder naming so this matches the folder names
 // the CLI itself writes under ~/.claude/projects for a given cwd.
 // Reverse-engineered from claude CLI 2.1.126.

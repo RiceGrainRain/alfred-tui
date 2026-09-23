@@ -1,31 +1,37 @@
-// Vendored + trimmed from switchboard/db.js.
+// SQLite store for archive/star state and the session-list cache
+// (~/.alfred/alfred.db, overridable via ALFRED_DATA_DIR).
 //
-// Opens the SAME file Switchboard uses (~/.switchboard/switchboard.db) so
-// archive state and the session cache stay shared between both tools. Only
-// the tables and statements alfred-tui actually needs are declared here
-// (session_meta, session_cache, cache_meta, settings) — Switchboard's
-// projects/tracks/schedules/plan_links/FTS-search tables are left completely
-// untouched: we neither create nor reference them, so an alfred-tui-only
-// install just never gets them, and a machine that also runs Switchboard
-// keeps them exactly as Switchboard manages them.
-//
-// The migration array and schema-reconciliation block below are copied
-// UNMODIFIED (including steps that only affect dropped tables, guarded by
-// try/catch) so the shared `db_version` counter never drifts between the two
-// apps — writing a smaller migrations.length here than Switchboard's own
-// would look like a downgrade and could make Switchboard re-run destructive
-// migrations against the shared file.
+// The migration array and schema-reconciliation block below are kept
+// UNMODIFIED (including steps that only affect tables alfred doesn't create,
+// guarded by try/catch) so databases carried over by the legacy import below
+// keep a consistent `db_version`.
 import Database from 'better-sqlite3';
 import path from 'path';
 import os from 'os';
 import fs from 'fs';
 
-const DATA_DIR = process.env.SWITCHBOARD_DATA_DIR
-  ? path.resolve(process.env.SWITCHBOARD_DATA_DIR)
-  : path.join(os.homedir(), '.switchboard');
+const DATA_DIR = process.env.ALFRED_DATA_DIR
+  ? path.resolve(process.env.ALFRED_DATA_DIR)
+  : path.join(os.homedir(), '.alfred');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
-const DB_PATH = path.join(DATA_DIR, 'switchboard.db');
+const DB_PATH = path.join(DATA_DIR, 'alfred.db');
+
+// One-time import: earlier versions kept their data in a different location.
+// On the first run with the default data dir, copy that database over so
+// existing stars/archives carry forward. VACUUM INTO folds any pending WAL
+// into a single consistent file; the legacy file itself is left untouched.
+const LEGACY_DB_PATH = path.join(os.homedir(), '.switchboard', 'switchboard.db');
+if (!process.env.ALFRED_DATA_DIR && !fs.existsSync(DB_PATH) && fs.existsSync(LEGACY_DB_PATH)) {
+  try {
+    const legacy = new Database(LEGACY_DB_PATH, { readonly: true, fileMustExist: true });
+    legacy.prepare('VACUUM INTO ?').run(DB_PATH);
+    legacy.close();
+  } catch {
+    try { fs.rmSync(DB_PATH, { force: true }); } catch {}
+  }
+}
+
 const db = new Database(DB_PATH);
 
 db.pragma('journal_mode = WAL');
@@ -76,7 +82,7 @@ db.exec(`
 db.exec('CREATE INDEX IF NOT EXISTS idx_session_cache_folder ON session_cache(folder)');
 db.exec('CREATE INDEX IF NOT EXISTS idx_session_cache_slug ON session_cache(slug)');
 
-// --- Migrations (copied verbatim from switchboard/db.js — see note above) ---
+// --- Migrations (kept verbatim — see note above) ---
 const migrations = [
   () => {},
   (db) => {

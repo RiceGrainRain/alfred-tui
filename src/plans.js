@@ -1,10 +1,8 @@
-// Plan-mode plans (~/.claude/plans/*.md) — reimplemented directly rather
-// than reusing switchboard/main.js's IPC handler, since the logic is ~15
-// lines: readdir, first `# ` line as title, mtime sort.
+// Plan-mode plans (~/.claude/plans/*.md): readdir, first `# ` line as title,
+// mtime sort.
 //
 // Also does lightweight discovery of any project's plan-tracker.md/todos.md
-// ("tracked progress"), without vendoring switchboard's Projects/Tracks
-// feature: it just checks the distinct projectPath values alfred-tui is
+// ("tracked progress"): it just checks the distinct projectPath values alfred-tui is
 // already loading for the session list, since that's the only place a cwd
 // is known from. A tracker kept outside every session's cwd won't be found —
 // acceptable for a lightweight v1, not a full Projects reimplementation.

@@ -8,7 +8,7 @@ import path from 'path';
 // they resolve their (overridable) paths at module load time.
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'alfred-tui-db-'));
 const projectsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'alfred-tui-projects-'));
-process.env.SWITCHBOARD_DATA_DIR = dataDir;
+process.env.ALFRED_DATA_DIR = dataDir;
 process.env.ALFRED_TUI_CLAUDE_PROJECTS_DIR = projectsDir;
 
 const db = await import('../src/db.js');

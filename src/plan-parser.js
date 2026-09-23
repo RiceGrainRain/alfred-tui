@@ -1,9 +1,3 @@
-// Vendored from switchboard/public/plan-parser.js (logic unchanged). The
-// original wraps this in an IIFE to support both `module.exports` (Node) and
-// a `window` global (browser) from one file; alfred-tui is ESM-only, so this
-// drops the IIFE/dual-export wrapper in favor of a plain `export`, but every
-// function body below is otherwise identical to the original.
-//
 // A tracker is markdown: every level-2 heading is a phase, the "- [ ]" lines
 // under it are its items. A heading may carry its own checkbox
 // ("## [x] Phase 1: …"). A phase is done when its heading is ticked, or when

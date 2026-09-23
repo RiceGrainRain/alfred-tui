@@ -282,7 +282,7 @@ export default function App() {
         <Text color="red" bold>alfred hit a startup error:</Text>
         <Text color="red">{error}</Text>
         <Box marginTop={1}>
-          <Text dimColor>Check that ~/.claude/projects and ~/.switchboard are readable. Press q/Esc to exit.</Text>
+          <Text dimColor>Check that ~/.claude/projects and ~/.alfred are readable. Press q/Esc to exit.</Text>
         </Box>
       </Box>
     );
