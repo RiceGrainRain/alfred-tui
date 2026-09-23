@@ -1,9 +1,12 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import Footer from '../components/Footer.jsx';
 import { readPlanModePlan } from '../plans.js';
 import { renderMarkdown } from '../markdown.js';
+import wrapAnsi from 'wrap-ansi';
 import { copyToClipboard } from '../clipboard.js';
+import { mouseEmitter } from '../mouse.js';
+import { CHROME_ROWS, footerHeight } from '../layout.js';
 
 function shortPath(p) {
   const home = process.env.HOME || '';
@@ -36,22 +39,41 @@ function TrackedView({ entry }) {
   );
 }
 
-export default function PlanDetail({ plan, trackedEntry, onBack }) {
+export default function PlanDetail({ plan, trackedEntry, onOpenInTab, onBack }) {
   const [offset, setOffset] = useState(0);
   const [copied, setCopied] = useState(null); // null | 'ok' | 'err'
 
+  // Hard-wrap to the pane width (minus paddingX) so one array entry is
+  // exactly one terminal row — otherwise long lines wrap on screen, the frame
+  // outgrows the pane and paging math is off.
+  const width = Math.max(10, (process.stdout.columns || 80) - 2);
   const lines = useMemo(() => {
     if (!plan) return [];
-    return renderMarkdown(readPlanModePlan(plan.filename)).split('\n');
-  }, [plan]);
+    return wrapAnsi(renderMarkdown(readPlanModePlan(plan.filename)), width, { hard: true, trim: false }).split('\n');
+  }, [plan, width]);
 
   const rows = process.stdout.rows || 24;
-  const pageHeight = Math.max(3, rows - 3); // title (1) + footer (1) + slack
+  // Reserve the height of the longest footer variant so the page doesn't
+  // jump when the "Copied!" message swaps in.
+  const hints = trackedEntry
+    ? 'o open in tab · 1-9 tab · x close tab · z zoom · q/Esc back'
+    : '↑↓/wheel scroll · space/b page · g/G top/bottom · c copy · o open in tab · 1-9 tab · x close tab · z zoom · q/Esc back';
+  const pageHeight = Math.max(3, rows - 2 - footerHeight(hints) - CHROME_ROWS); // app chrome + title (1) + footer + slack
+
   const maxOffset = Math.max(0, lines.length - pageHeight);
   const off = Math.min(offset, maxOffset);
 
+  const maxOffsetRef = useRef(0);
+  maxOffsetRef.current = maxOffset;
+  useEffect(() => {
+    const onWheel = ({ dir }) => setOffset(o => Math.max(0, Math.min(o + dir * 3, maxOffsetRef.current)));
+    mouseEmitter.on('wheel', onWheel);
+    return () => mouseEmitter.off('wheel', onWheel);
+  }, []);
+
   useInput((input, key) => {
     if (input === 'q' || key.escape) { onBack(); return; }
+    if (input === 'o') { onOpenInTab?.(); return; }
     if (!plan) return;
     if (key.downArrow || input === 'j') { setOffset(o => Math.min(o + 1, maxOffset)); return; }
     if (key.upArrow || input === 'k') { setOffset(o => Math.max(o - 1, 0)); return; }
@@ -75,7 +97,7 @@ export default function PlanDetail({ plan, trackedEntry, onBack }) {
     return (
       <Box flexDirection="column" flexGrow={1}>
         <Box paddingX={1} flexGrow={1}><TrackedView entry={trackedEntry} /></Box>
-        <Footer hints="q/Esc back" />
+        <Footer hints={hints} />
       </Box>
     );
   }
@@ -90,12 +112,12 @@ export default function PlanDetail({ plan, trackedEntry, onBack }) {
         <Text dimColor>{more}</Text>
       </Box>
       <Box flexDirection="column" paddingX={1} flexGrow={1}>
-        {visible.map((l, i) => <Text key={off + i}>{l || ' '}</Text>)}
+        {visible.map((l, i) => <Text key={off + i} wrap="truncate-end">{l || ' '}</Text>)}
       </Box>
       <Footer hints={
         copied === 'ok' ? '✓ Copied!' :
         copied === 'err' ? '✗ Copy failed' :
-        '↑↓ scroll · space/b page · g/G top/bottom · c copy · q/Esc back'
+        hints
       } />
     </Box>
   );

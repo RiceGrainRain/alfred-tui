@@ -42,10 +42,14 @@ function listPlanModePlans() {
   return plans;
 }
 
+/** Absolute path of one plan-mode plan file. */
+function planModePath(filename) {
+  return path.join(plansDir(), path.basename(filename));
+}
+
 /** Raw content of one plan-mode plan file. */
 function readPlanModePlan(filename) {
-  const filePath = path.join(plansDir(), path.basename(filename));
-  return fs.readFileSync(filePath, 'utf8');
+  return fs.readFileSync(planModePath(filename), 'utf8');
 }
 
 /** Discover plan-tracker.md/todos.md next to any known session cwd. */
@@ -81,4 +85,4 @@ function listTrackedProgress(projectPaths) {
   return found;
 }
 
-export { listPlanModePlans, readPlanModePlan, listTrackedProgress };
+export { listPlanModePlans, planModePath, readPlanModePlan, listTrackedProgress };

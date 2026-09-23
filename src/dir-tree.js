@@ -25,6 +25,7 @@ const EXT_ICON = {
 };
 
 const DIR_ICON = ' '; // nf-fa-folder
+const DIR_OPEN_ICON = '\uf07c '; // nf-fa-folder_open
 const FILE_ICON = ' '; // nf-fa-file
 
 export function fileIcon(name) {
@@ -33,42 +34,53 @@ export function fileIcon(name) {
   return EXT_ICON[ext] || FILE_ICON;
 }
 
-// Returns a flat list of { prefix, connector, icon, name, type, path } for rendering.
-// Each entry is one terminal row. Dirs come before files at each level.
-export function buildDirTree(root, maxDepth = 4) {
+// One directory level: [{ name, path, type: 'dir'|'file' }], dirs first,
+// hidden and SKIP entries dropped.
+export function readDirLevel(dir) {
+  let entries;
+  try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return []; }
+  return entries
+    .filter(e => !e.name.startsWith('.') && !SKIP.has(e.name))
+    .sort((a, b) => {
+      const aDir = a.isDirectory();
+      const bDir = b.isDirectory();
+      if (aDir !== bDir) return aDir ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    })
+    .map(e => ({ name: e.name, path: path.join(dir, e.name), type: e.isDirectory() ? 'dir' : 'file' }));
+}
+
+// Build the nested tree under `root`, descending only into dirs in `expanded`
+// so big repos stay cheap. `readLevel` is injectable (e.g. a caching wrapper).
+export function buildTree(root, expanded, readLevel = readDirLevel) {
+  return readLevel(root).map(node => node.type === 'dir'
+    ? { ...node, children: expanded.has(node.path) ? buildTree(node.path, expanded, readLevel) : [] }
+    : node);
+}
+
+// Flatten a tree into one row per visible entry. Only dirs whose path is in
+// `expanded` show their children. Each row:
+// { prefix, connector, icon, name, type, path, depth, expanded }.
+export function flattenTree(nodes, expanded) {
   const flat = [];
-
-  function walk(dir, depth, linePrefix) {
-    if (depth > maxDepth) return;
-    let entries;
-    try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return; }
-
-    entries = entries
-      .filter(e => !e.name.startsWith('.') && !SKIP.has(e.name))
-      .sort((a, b) => {
-        const aDir = a.isDirectory();
-        const bDir = b.isDirectory();
-        if (aDir !== bDir) return aDir ? -1 : 1;
-        return a.name.localeCompare(b.name);
-      });
-
-    entries.forEach((e, i) => {
-      const isLast = i === entries.length - 1;
-      const connector = isLast ? '└── ' : '├── ';
-      const fullPath = path.join(dir, e.name);
-      const isDir = e.isDirectory();
+  function walk(list, depth, linePrefix) {
+    list.forEach((node, i) => {
+      const isLast = i === list.length - 1;
+      const isDir = node.type === 'dir';
+      const open = isDir && expanded.has(node.path);
       flat.push({
         prefix: linePrefix,
-        connector,
-        icon: isDir ? DIR_ICON : fileIcon(e.name),
-        name: e.name + (isDir ? '/' : ''),
-        type: isDir ? 'dir' : 'file',
-        path: fullPath,
+        connector: isLast ? '└── ' : '├── ',
+        icon: isDir ? (open ? DIR_OPEN_ICON : DIR_ICON) : fileIcon(node.name),
+        name: node.name + (isDir ? '/' : ''),
+        type: node.type,
+        path: node.path,
+        depth,
+        expanded: open,
       });
-      if (isDir) walk(fullPath, depth + 1, linePrefix + (isLast ? '    ' : '│   '));
+      if (open) walk(node.children, depth + 1, linePrefix + (isLast ? '    ' : '│   '));
     });
   }
-
-  walk(root, 0, '');
+  walk(nodes, 0, '');
   return flat;
 }

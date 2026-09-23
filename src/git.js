@@ -11,6 +11,8 @@ function gitRun(args, cwd) {
 export function getGitStatus(projectPath) {
   try {
     const branch = gitRun(['rev-parse', '--abbrev-ref', 'HEAD'], projectPath).trim();
+    // Porcelain paths are relative to the repo root, which may be above projectPath.
+    const root = gitRun(['rev-parse', '--show-toplevel'], projectPath).trim();
     const raw = gitRun(['status', '--porcelain=v1', '-z'], projectPath);
 
     const staged = [];
@@ -39,7 +41,7 @@ export function getGitStatus(projectPath) {
       i++;
     }
 
-    return { branch, staged, unstaged, untracked };
+    return { branch, root, staged, unstaged, untracked };
   } catch {
     return null;
   }

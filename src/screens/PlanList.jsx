@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { mouseEmitter } from '../mouse.js';
 import Footer from '../components/Footer.jsx';
-import { computeViewport } from '../layout.js';
+import { CHROME_ROWS, computeViewport, footerHeight } from '../layout.js';
 import { relativeTime } from '../time.js';
 
 function shortPath(p) {
@@ -46,24 +46,51 @@ function PlanCard({ item, selected }) {
   );
 }
 
-export default function PlanList({ plans, tracked, onOpenPlan, onOpenTracked, onSwitchToSessions, onCycleTab, onQuit }) {
+export default function PlanList({ plans, tracked, onOpenPlan, onOpenTracked, onOpenInTab, onSwitchToSessions, onCycleTab, onQuit }) {
   const [selected, setSelected] = useState(0);
   const flat = useMemo(() => buildFlat(plans, tracked), [plans, tracked]);
   const rowMapRef = useRef({});
   const sel = Math.max(0, Math.min(selected, flat.length - 1));
 
   const rows = process.stdout.rows || 24;
-  const budget = Math.max(4, rows - 3);
+  const hints = '↑↓/click/wheel move · ⏎/double-click view · o open in tab · s sessions · 1-9 tab · x close tab · z zoom · ⇥ cycle · q quit';
+  // app chrome + header (1) + footer (wrapped) + 1 row slack
+  const budget = Math.max(4, rows - 2 - footerHeight(hints) - CHROME_ROWS);
   const perPageEstimate = Math.max(2, Math.floor(budget / 3));
   const { start } = computeViewport(flat.length, sel, perPageEstimate);
 
+  // ⏎ / second click: read the plan in the sidebar. o: open it in a work tab.
+  const view = (item) => {
+    if (!item) return;
+    if (item.kind === 'plan') onOpenPlan(item.plan);
+    else onOpenTracked(item.entry);
+  };
+  const openInTab = (item) => {
+    if (!item) return;
+    onOpenInTab(item.kind === 'plan' ? { plan: item.plan } : { trackedEntry: item.entry });
+  };
+
+  const lastRef = useRef(0);
+  lastRef.current = flat.length - 1;
+  const clickRef = useRef({});
+  clickRef.current = { sel, flat, view };
   useEffect(() => {
-    const handler = ({ row }) => {
+    const onClick = ({ row }) => {
       const idx = rowMapRef.current[row];
-      if (idx != null) setSelected(idx);
+      if (idx == null) return;
+      const { sel: cur, flat: items, view: v } = clickRef.current;
+      if (idx === cur) v(items[idx]);
+      else setSelected(idx);
     };
-    mouseEmitter.on('click', handler);
-    return () => mouseEmitter.off('click', handler);
+    const onWheel = ({ dir }) => {
+      setSelected(s => Math.max(0, Math.min(s + dir, lastRef.current)));
+    };
+    mouseEmitter.on('click', onClick);
+    mouseEmitter.on('wheel', onWheel);
+    return () => {
+      mouseEmitter.off('click', onClick);
+      mouseEmitter.off('wheel', onWheel);
+    };
   }, []);
 
   useInput((input, key) => {
@@ -72,20 +99,16 @@ export default function PlanList({ plans, tracked, onOpenPlan, onOpenTracked, on
     if (input === 's') { onSwitchToSessions(); return; }
     if (key.downArrow || input === 'j') { setSelected(Math.min(sel + 1, flat.length - 1)); return; }
     if (key.upArrow || input === 'k') { setSelected(Math.max(sel - 1, 0)); return; }
-    if (key.return) {
-      const item = flat[sel];
-      if (!item) return;
-      if (item.kind === 'plan') onOpenPlan(item.plan);
-      else onOpenTracked(item.entry);
-    }
+    if (key.return) { view(flat[sel]); return; }
+    if (input === 'o') { openInTab(flat[sel]); return; }
   });
 
   let lastSection = null;
   let used = 0;
   const items = [];
-  // Row 1: header; plan cards start at row 2.
+  // Below the app chrome: header (1 row), then plan cards.
   const rowMap = {};
-  let currentRow = 2;
+  let currentRow = CHROME_ROWS + 2;
   for (let i = start; i < flat.length; i++) {
     const item = flat[i];
     const needHeader = item.section !== lastSection;
@@ -114,15 +137,14 @@ export default function PlanList({ plans, tracked, onOpenPlan, onOpenTracked, on
 
   return (
     <Box flexDirection="column" flexGrow={1}>
-      <Box paddingX={1} justifyContent="space-between">
-        <Text bold color="cyan">ALFRED</Text>
+      <Box paddingX={1}>
         <Text dimColor>{flat.length} plan{flat.length === 1 ? '' : 's'}</Text>
       </Box>
       <Box flexDirection="column" flexGrow={1}>
         {flat.length === 0 && <Box paddingX={1}><Text dimColor>No plans found.</Text></Box>}
         {items}
       </Box>
-      <Footer hints="↑↓/click move · ⏎ open · s sessions · ⇥ cycle · q quit" />
+      <Footer hints={hints} />
     </Box>
   );
 }

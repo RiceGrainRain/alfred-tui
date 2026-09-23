@@ -16,4 +16,6 @@ const [{ default: React }, { render }, { default: App }, { enableMouse }] = awai
 ]);
 
 enableMouse();
-render(React.createElement(App));
+// Alternate screen: frames stay anchored at row 1 (mouse row maps depend on
+// it) and tmux never reflows old frames when the pane is resized/zoomed.
+render(React.createElement(App), { alternateScreen: true });

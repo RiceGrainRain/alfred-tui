@@ -13,23 +13,26 @@ Electron, `node-pty`, or `xterm` in the dependency tree.
 ## How it works
 
 ```
-┌──────────────┬───────────────────────────┐
-│ ALFRED       │  claude --resume <id>     │
-│ ▾ p/alfred   │                           │
-│  ● build-tui │  the real Claude Code     │
-│    new sess  │  session runs live here   │
-│ ▾ work/psa   │                           │
-│    add-epss  │  Ctrl-b ← back to sidebar │
-└──────────────┴───────────────────────────┘
-   sidebar (Ink)      work pane (swaps)
+┌─────────────────────────┬───────────────────────────┐
+│ Sessions  Plans  Git    │─ claude:build-tui ────────│
+│ 1 claude:build 2 nvim:… │  claude --resume <id>     │
+│ ▾ p/alfred              │                           │
+│  ● build-tui            │  the real Claude Code     │
+│  ● add-epss             │  session runs live here   │
+│ ▾ work/psa              │                           │
+└─────────────────────────┴───────────────────────────┘
+   sidebar (Ink)             work pane (tabs)
 ```
 
 - Run `alfred` and it opens a tmux session with the sidebar (left) and an empty work pane (right).
-- Select a session and press **Enter** — `claude --resume <id>` starts in the work pane, in that
-  session's project directory, and focus jumps to it. You're now in a normal Claude Code session.
-- Press **Ctrl-b ←** (tmux) to jump back to the sidebar. Open another session and the work pane
-  **swaps** to it (you'll be asked to confirm if a session is still running there).
-- Killing/swapping a session only detaches the CLI — the transcript persists and is re-resumable.
+- Select a session and press **Enter** (or double-click it) — `claude --resume <id>` starts in a new
+  **work tab**, in that session's project directory, and focus jumps to it.
+- The work pane holds **tabs**: claude sessions, plans (`o` in plan detail) and files from the Git
+  tab all open as tabs. Click a tab in the sidebar's second row (or press `1`–`9`) to switch — the
+  other tabs keep running in a hidden tmux session (`alfred-stash-*`), so nothing is killed.
+  `x` (or clicking `×`) closes the active tab; a tab whose program exits (e.g. `:q`) disappears.
+- Click the pane you want to type in, or use **Ctrl-b ←/→** (tmux).
+- Closing a claude tab only detaches the CLI — the transcript persists and is re-resumable.
 
 ## Features
 
@@ -39,13 +42,22 @@ Electron, `node-pty`, or `xterm` in the dependency tree.
 - Read a session's transcript without leaving the sidebar (v), markdown rendered — no raw syntax.
 - Archive / unarchive (a) and star / unstar (s) — both sync with Switchboard.
 - Browse `~/.claude/plans/*.md` plan-mode plans plus any project's `plan-tracker.md`/`todos.md`,
-  rendered to readable text.
+  rendered to readable text — or open any plan straight into a work tab (`o`, or double-click then `o`)
+  to edit it in `nvim`.
+- Git tab: per-project git status, or a collapsible directory tree (`e`); open files in `nvim` tabs,
+  diffs in `less` tabs.
+- Mouse everywhere: click tabs, cards and tree rows; scroll with the wheel; drag the pane divider to
+  resize; `z` zooms the sidebar to full width (e.g. to see a deep tree) and back.
+- Every screen shows its full set of keybinds; the hints wrap onto extra lines when the sidebar is
+  narrow instead of being cut off.
 
 ## Requirements
 
 - **tmux** (tested on 3.7) — `brew install tmux`
 - **Node ≥ 22** (Ink 7 and better-sqlite3 require it)
 - The `claude` CLI on your PATH (for opening sessions live)
+- `nvim` for opening files/plans (override with `ALFRED_EDITOR`, e.g. `ALFRED_EDITOR=hx`)
+- A terminal with mouse reporting (Ghostty, iTerm2, kitty, WezTerm, …)
 
 ## Install
 
@@ -61,25 +73,36 @@ npm link   # optional: makes `alfred` available globally
 alfred
 ```
 
-Run it from a plain shell — it creates/attaches the `alfred` tmux session for you. If you're
-already inside tmux, it splits the current window instead (and quitting then leaves your session
-intact).
+Run it from a plain shell — it creates/attaches the `alfred` tmux session for you (with tmux mouse
+mode and pane labels turned on for that session only). If you're already inside tmux, it opens tabs
+next to the current pane instead and leaves your session's options alone — set `mouse on` in your
+own tmux config if you want clicks there — and quitting removes only alfred's panes.
 
 ### Keys
 
+**Everywhere:** click `Sessions`/`Plans`/`Git` or `Tab` to cycle · `1`–`9` / click switch work tab ·
+`x` / click `×` close work tab · `z` zoom sidebar · mouse wheel scrolls
+
 **Sidebar (sessions):** `↑`/`↓` (or `k`/`j`) move · `Enter` open (resume) · `n` new session ·
-`v` view transcript · `a` archive · `s` star · `/` filter · `A` show archived · `Tab`/`p` plans · `q` quit
+`v` view transcript · `a` archive · `s` star · `/` filter · `A` show archived · `p` plans · `q` quit ·
+click a card to select it, click it again to open it
 
-**Transcript view:** `↑`/`↓` prev/next turn · `g`/`G` first/last · `o` open live · `q`/`Esc` back
+**Transcript view:** `↑`/`↓` prev/next turn · `space`/`b` page within a turn · `g`/`G` first/last ·
+`o` open live · `q`/`Esc` back
 
-**Plans:** `↑`/`↓` move · `Enter` open · `Tab`/`s` sessions · `q` quit
+**Plans:** `↑`/`↓` move · `Enter` (or click a selected card) read it here · `o` open in a work tab ·
+`s` sessions · `q` quit
 
-**Plan detail:** `↑`/`↓` scroll · `space`/`b` page · `g`/`G` top/bottom · `q`/`Esc` back
+**Plan detail:** `↑`/`↓` scroll · `space`/`b` page · `g`/`G` top/bottom · `c` copy · `o` open in tab ·
+`q`/`Esc` back
+
+**Git:** `↑`/`↓` move · `←`/`→` switch between project list and files · `Enter`/click open file
+(dirs expand/collapse) · `d` diff · `e` git status ⇄ dir tree · `r` refresh · `space`/`b` page
 
 **tmux:** `Ctrl-b ←` / `Ctrl-b →` move between the sidebar and the work pane.
 
-Quitting with `q` from the sidebar tears down the whole `alfred` tmux session and returns you to
-your shell.
+Quitting with `q` from the sidebar tears down the whole `alfred` tmux session — including every
+work tab — and returns you to your shell.
 
 ## Development
 

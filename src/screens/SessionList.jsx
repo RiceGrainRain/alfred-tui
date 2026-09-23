@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
-import { mouseEmitter } from '../mouse.js';
+import { mouseEmitter, isMouseSeq } from '../mouse.js';
 import Footer from '../components/Footer.jsx';
 import SearchBar from '../components/SearchBar.jsx';
 import SessionCard from '../components/SessionCard.jsx';
-import { computeViewport } from '../layout.js';
+import { CHROME_ROWS, computeViewport, footerHeight } from '../layout.js';
 
 function sessionLabel(session) {
   return session.name || session.aiTitle || session.summary || session.sessionId;
@@ -32,9 +32,9 @@ function buildFlat(projects, filter) {
 }
 
 export default function SessionList({
-  projects, showArchived, liveSessionId,
+  projects, showArchived, liveSessionIds,
   onToggleShowArchived, onArchiveToggle, onStarToggle, onOpen, onNew, onView,
-  onSwitchToPlans, onCycleTab, onQuit,
+  onSwitchToPlans, onCycleTab, onFilterMode, onQuit,
 }) {
   const [selected, setSelected] = useState(0);
   const [filterMode, setFilterMode] = useState(false);
@@ -50,27 +50,54 @@ export default function SessionList({
     return counts;
   }, [flat]);
 
-  // Chrome above/below the list: header (1) + search bar (3, bordered) +
-  // footer (1). Everything else is the scrollable card list. Cards are 4
+  const hints = filterMode
+    ? 'type to filter · ⏎/Esc done'
+    : [
+        '↑↓/click/wheel move · ⏎/double-click open · n new · v view · a archive · s star',
+        '/ find · A archived · p plans · 1-9 tab · x close tab · z zoom · ⇥ cycle · q quit',
+      ];
+
+  // Chrome above/below the list: app chrome (CHROME_ROWS) + header (1) +
+  // search bar (3, bordered) + footer (wrapped). Everything else is the scrollable card list. Cards are 4
   // lines; a group header is 1 line (+1 spacer between groups). We pick a
   // start row that centres the selection, then greedily fill the line budget
   // WITHOUT overflowing — no clipping, so bordered cards never get cut.
   const rows = process.stdout.rows || 24;
-  const budget = Math.max(4, rows - 5);
+  const budget = Math.max(4, rows - 4 - footerHeight(hints) - CHROME_ROWS);
   const perPageEstimate = Math.max(2, Math.floor(budget / 4));
   const { start } = computeViewport(flat.length, sel, perPageEstimate);
 
+  // Let the app suspend its global single-key bindings while typing a filter.
+  useEffect(() => { onFilterMode?.(filterMode); }, [filterMode]);
+  useEffect(() => () => onFilterMode?.(false), []);
+
+  const lastRef = useRef(0);
+  lastRef.current = flat.length - 1;
+  const clickRef = useRef({});
+  clickRef.current = { sel, flat, onOpen };
   useEffect(() => {
-    const handler = ({ row }) => {
+    // Click selects; clicking the already-selected card opens it.
+    const onClick = ({ row }) => {
       const idx = rowMapRef.current[row];
-      if (idx != null) setSelected(idx);
+      if (idx == null) return;
+      const { sel: cur, flat: items, onOpen: open } = clickRef.current;
+      if (idx === cur && items[idx]) open(items[idx].session);
+      else setSelected(idx);
     };
-    mouseEmitter.on('click', handler);
-    return () => mouseEmitter.off('click', handler);
+    const onWheel = ({ dir }) => {
+      setSelected(s => Math.max(0, Math.min(s + dir, lastRef.current)));
+    };
+    mouseEmitter.on('click', onClick);
+    mouseEmitter.on('wheel', onWheel);
+    return () => {
+      mouseEmitter.off('click', onClick);
+      mouseEmitter.off('wheel', onWheel);
+    };
   }, []);
 
   useInput((input, key) => {
     if (filterMode) {
+      if (isMouseSeq(input)) return;
       if (key.return || key.escape) setFilterMode(false);
       else if (key.backspace || key.delete) setFilter(f => f.slice(0, -1));
       else if (input) setFilter(f => f + input);
@@ -95,9 +122,10 @@ export default function SessionList({
   let lastLabel = null;
   let used = 0;
   const items = [];
-  // Row 1: header, rows 2-4: SearchBar bordered box; cards start at row 5.
+  // Below the app chrome: header (1 row), SearchBar bordered box (3 rows),
+  // then cards.
   const rowMap = {};
-  let currentRow = 5;
+  let currentRow = CHROME_ROWS + 5;
   for (let i = start; i < flat.length; i++) {
     const { session, label } = flat[i];
     const needHeader = label !== lastLabel;
@@ -126,7 +154,7 @@ export default function SessionList({
         key={session.sessionId}
         session={session}
         selected={i === sel}
-        live={session.sessionId === liveSessionId}
+        live={liveSessionIds.has(session.sessionId)}
       />
     );
     used += 4;
@@ -135,8 +163,7 @@ export default function SessionList({
 
   return (
     <Box flexDirection="column" flexGrow={1}>
-      <Box paddingX={1} justifyContent="space-between">
-        <Text bold color="cyan">ALFRED</Text>
+      <Box paddingX={1}>
         <Text dimColor>
           {flat.length} session{flat.length === 1 ? '' : 's'}{showArchived ? ' · archived' : ''}
         </Text>
@@ -146,14 +173,7 @@ export default function SessionList({
         {flat.length === 0 && <Box paddingX={1}><Text dimColor>No sessions found.</Text></Box>}
         {items}
       </Box>
-      <Footer hints={
-        filterMode
-          ? 'type to filter · ⏎/Esc done'
-          : [
-              '↑↓/click move · ⏎ open · n new · v view · a archive · s star',
-              '/ find · A all archived · p plans · ⇥ cycle tabs · q quit',
-            ]
-      } />
+      <Footer hints={hints} />
     </Box>
   );
 }

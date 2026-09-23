@@ -1,6 +1,6 @@
 {
   "name": "alfred-tui",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "A minimal terminal companion for browsing and archiving Claude Code sessions and plans",
@@ -20,7 +20,8 @@
     "ink": "^7.1.1",
     "marked": "^15.0.12",
     "marked-terminal": "^7.3.0",
-    "react": "^19.2.0"
+    "react": "^19.2.0",
+    "wrap-ansi": "^10.0.0"
   },
   "devDependencies": {
     "esbuild": "^0.27.3"
