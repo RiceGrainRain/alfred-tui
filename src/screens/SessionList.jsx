@@ -149,7 +149,10 @@ export default function SessionList({
       <Footer hints={
         filterMode
           ? 'type to filter · ⏎/Esc done'
-          : '↑↓/click move · ⏎ open · n new · v view · a arch · s star · / find · A all · ⇥ cycle · q quit'
+          : [
+              '↑↓/click move · ⏎ open · n new · v view · a archive · s star',
+              '/ find · A all archived · p plans · ⇥ cycle tabs · q quit',
+            ]
       } />
     </Box>
   );
