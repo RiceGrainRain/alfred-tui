@@ -3,6 +3,7 @@ import { Box, Text, useInput } from 'ink';
 import Footer from '../components/Footer.jsx';
 import { readPlanModePlan } from '../plans.js';
 import { renderMarkdown } from '../markdown.js';
+import { copyToClipboard } from '../clipboard.js';
 
 function shortPath(p) {
   const home = process.env.HOME || '';
@@ -37,6 +38,7 @@ function TrackedView({ entry }) {
 
 export default function PlanDetail({ plan, trackedEntry, onBack }) {
   const [offset, setOffset] = useState(0);
+  const [copied, setCopied] = useState(null); // null | 'ok' | 'err'
 
   const lines = useMemo(() => {
     if (!plan) return [];
@@ -57,6 +59,16 @@ export default function PlanDetail({ plan, trackedEntry, onBack }) {
     if (key.pageUp || input === 'b') { setOffset(o => Math.max(o - pageHeight, 0)); return; }
     if (input === 'g') { setOffset(0); return; }
     if (input === 'G') { setOffset(maxOffset); return; }
+    if (input === 'c') {
+      try {
+        copyToClipboard(readPlanModePlan(plan.filename));
+        setCopied('ok');
+        setTimeout(() => setCopied(null), 1500);
+      } catch {
+        setCopied('err');
+        setTimeout(() => setCopied(null), 1500);
+      }
+    }
   });
 
   if (trackedEntry) {
@@ -80,7 +92,11 @@ export default function PlanDetail({ plan, trackedEntry, onBack }) {
       <Box flexDirection="column" paddingX={1} flexGrow={1}>
         {visible.map((l, i) => <Text key={off + i}>{l || ' '}</Text>)}
       </Box>
-      <Footer hints="↑↓ scroll · space/b page · g/G top/bottom · q/Esc back" />
+      <Footer hints={
+        copied === 'ok' ? '✓ Copied!' :
+        copied === 'err' ? '✗ Copy failed' :
+        '↑↓ scroll · space/b page · g/G top/bottom · c copy · q/Esc back'
+      } />
     </Box>
   );
 }
