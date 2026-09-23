@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { Box, Text, useApp, useInput } from 'ink';
+import { Box, Text, useApp, useInput, useStdin } from 'ink';
 import SessionList from './screens/SessionList.jsx';
 import SessionDetail from './screens/SessionDetail.jsx';
 import PlanList from './screens/PlanList.jsx';
@@ -10,10 +10,17 @@ import * as db from './db.js';
 import * as sessionIndex from './session-index.js';
 import * as tmux from './tmux.js';
 import { listPlanModePlans, listTrackedProgress } from './plans.js';
-import { disableMouse } from './mouse.js';
+import { attachMouseListener, disableMouse } from './mouse.js';
 
 export default function App() {
   const { exit } = useApp();
+  const { stdin } = useStdin();
+
+  // Attach SGR mouse event parser to the stdin stream Ink actually reads from.
+  useEffect(() => {
+    if (!stdin) return;
+    return attachMouseListener(stdin);
+  }, [stdin]);
   const [status, setStatus] = useState('loading'); // loading | ready | error
   const [error, setError] = useState(null);
   const [progress, setProgress] = useState(null);
