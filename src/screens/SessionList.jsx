@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
+import { mouseEmitter } from '../mouse.js';
 import Footer from '../components/Footer.jsx';
 import SearchBar from '../components/SearchBar.jsx';
 import SessionCard from '../components/SessionCard.jsx';
@@ -32,11 +33,13 @@ function buildFlat(projects, filter) {
 
 export default function SessionList({
   projects, showArchived, liveSessionId,
-  onToggleShowArchived, onArchiveToggle, onStarToggle, onOpen, onNew, onView, onSwitchToPlans, onQuit,
+  onToggleShowArchived, onArchiveToggle, onStarToggle, onOpen, onNew, onView,
+  onSwitchToPlans, onCycleTab, onQuit,
 }) {
   const [selected, setSelected] = useState(0);
   const [filterMode, setFilterMode] = useState(false);
   const [filter, setFilter] = useState('');
+  const rowMapRef = useRef({});
 
   const flat = useMemo(() => buildFlat(projects, filter), [projects, filter]);
   const sel = Math.max(0, Math.min(selected, flat.length - 1));
@@ -57,6 +60,15 @@ export default function SessionList({
   const perPageEstimate = Math.max(2, Math.floor(budget / 4));
   const { start } = computeViewport(flat.length, sel, perPageEstimate);
 
+  useEffect(() => {
+    const handler = ({ row }) => {
+      const idx = rowMapRef.current[row];
+      if (idx != null) setSelected(idx);
+    };
+    mouseEmitter.on('click', handler);
+    return () => mouseEmitter.off('click', handler);
+  }, []);
+
   useInput((input, key) => {
     if (filterMode) {
       if (key.return || key.escape) setFilterMode(false);
@@ -65,7 +77,8 @@ export default function SessionList({
       return;
     }
     if (input === 'q') { onQuit(); return; }
-    if (key.tab || input === 'p') { onSwitchToPlans(); return; }
+    if (key.tab) { onCycleTab(); return; }
+    if (input === 'p') { onSwitchToPlans(); return; }
     if (input === '/') { setFilterMode(true); return; }
     if (input === 'A') { onToggleShowArchived(); return; }
     if (key.downArrow || input === 'j') { setSelected(Math.min(sel + 1, flat.length - 1)); return; }
@@ -82,12 +95,17 @@ export default function SessionList({
   let lastLabel = null;
   let used = 0;
   const items = [];
+  // Row 1: header, rows 2-4: SearchBar bordered box; cards start at row 5.
+  const rowMap = {};
+  let currentRow = 5;
   for (let i = start; i < flat.length; i++) {
     const { session, label } = flat[i];
     const needHeader = label !== lastLabel;
     const headerCost = needHeader ? (items.length ? 2 : 1) : 0;
     if (used + headerCost + 4 > budget) break; // 4 = card height
     if (needHeader) {
+      if (items.length) currentRow++; // blank separator row (marginTop={1})
+      currentRow++; // group header row
       items.push(
         <Box key={`h:${label}:${i}`} marginTop={items.length ? 1 : 0}>
           <Text color="blue">▾ </Text><Text bold color="blueBright">{label}</Text>
@@ -97,6 +115,12 @@ export default function SessionList({
       used += headerCost;
       lastLabel = label;
     }
+    // SessionCard is a bordered box: 4 rows (border-top, line1, line2, border-bottom)
+    rowMap[currentRow] = i;
+    rowMap[currentRow + 1] = i;
+    rowMap[currentRow + 2] = i;
+    rowMap[currentRow + 3] = i;
+    currentRow += 4;
     items.push(
       <SessionCard
         key={session.sessionId}
@@ -107,6 +131,7 @@ export default function SessionList({
     );
     used += 4;
   }
+  rowMapRef.current = rowMap;
 
   return (
     <Box flexDirection="column" flexGrow={1}>
@@ -124,7 +149,7 @@ export default function SessionList({
       <Footer hints={
         filterMode
           ? 'type to filter · ⏎/Esc done'
-          : '↑↓ move · ⏎ open · n new · v view · a arch · s star · / find · A all · ⇥ plans · q quit'
+          : '↑↓/click move · ⏎ open · n new · v view · a arch · s star · / find · A all · ⇥ cycle · q quit'
       } />
     </Box>
   );

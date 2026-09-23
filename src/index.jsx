@@ -8,10 +8,12 @@ if (!inTmux()) {
   process.exit(0);
 }
 
-const [{ default: React }, { render }, { default: App }] = await Promise.all([
+const [{ default: React }, { render }, { default: App }, { enableMouse }] = await Promise.all([
   import('react'),
   import('ink'),
   import('./App.jsx'),
+  import('./mouse.js'),
 ]);
 
+enableMouse();
 render(React.createElement(App));

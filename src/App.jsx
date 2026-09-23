@@ -4,11 +4,13 @@ import SessionList from './screens/SessionList.jsx';
 import SessionDetail from './screens/SessionDetail.jsx';
 import PlanList from './screens/PlanList.jsx';
 import PlanDetail from './screens/PlanDetail.jsx';
+import GitTree from './screens/GitTree.jsx';
 import Confirm from './components/Confirm.jsx';
 import * as db from './db.js';
 import * as sessionIndex from './session-index.js';
 import * as tmux from './tmux.js';
 import { listPlanModePlans, listTrackedProgress } from './plans.js';
+import { disableMouse } from './mouse.js';
 
 export default function App() {
   const { exit } = useApp();
@@ -18,7 +20,7 @@ export default function App() {
   const [projects, setProjects] = useState([]);
   const [showArchived, setShowArchived] = useState(false);
   const [plans, setPlans] = useState([]);
-  const [rootTab, setRootTab] = useState('sessions'); // sessions | plans
+  const [rootTab, setRootTab] = useState('sessions'); // sessions | plans | git
   const [stack, setStack] = useState([]); // detail views pushed on top of the active root tab
   const [liveSessionId, setLiveSessionId] = useState(null);
   const [confirm, setConfirm] = useState(null); // { message, onYes }
@@ -57,8 +59,13 @@ export default function App() {
   const push = (view) => setStack(s => [...s, view]);
   const pop = () => setStack(s => s.slice(0, -1));
 
+  const cycleTab = useCallback(() => {
+    setRootTab(t => t === 'sessions' ? 'plans' : t === 'plans' ? 'git' : 'sessions');
+  }, []);
+
   const onQuit = () => {
     if (stack.length > 0) { pop(); return; }
+    disableMouse();
     if (tmux.ownsSession()) {
       tmux.killOwnedSession(); // tears down both panes and detaches
     } else {
@@ -145,9 +152,11 @@ export default function App() {
 
   const onView = (session) => push({ type: 'sessionDetail', session });
 
-  const top = stack[stack.length - 1] || { type: rootTab === 'sessions' ? 'sessionList' : 'planList' };
+  const top = stack[stack.length - 1] || {
+    type: rootTab === 'sessions' ? 'sessionList' : rootTab === 'plans' ? 'planList' : 'gitTree',
+  };
 
-  const ownsInput = new Set(['sessionList', 'sessionDetail', 'planList', 'planDetail']);
+  const ownsInput = new Set(['sessionList', 'sessionDetail', 'planList', 'planDetail', 'gitTree']);
   useInput((input, key) => {
     if (input === 'q' || key.escape) {
       if (status === 'error') exit();
@@ -200,6 +209,7 @@ export default function App() {
         onNew={onNew}
         onView={onView}
         onSwitchToPlans={() => setRootTab('plans')}
+        onCycleTab={cycleTab}
         onQuit={onQuit}
       />
     );
@@ -217,7 +227,19 @@ export default function App() {
         onOpenPlan={(plan) => push({ type: 'planDetail', plan })}
         onOpenTracked={(entry) => push({ type: 'planDetail', trackedEntry: entry })}
         onSwitchToSessions={() => setRootTab('sessions')}
+        onCycleTab={cycleTab}
         onQuit={onQuit}
+      />
+    );
+  }
+
+  if (top.type === 'gitTree') {
+    return (
+      <GitTree
+        projects={projects}
+        liveSessionId={liveSessionId}
+        onCycleTab={cycleTab}
+        onBack={() => setRootTab('sessions')}
       />
     );
   }
