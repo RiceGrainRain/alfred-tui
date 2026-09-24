@@ -31,7 +31,7 @@ function buildGitItems(status) {
 
 const isSelectable = (item) => item && item.kind !== 'section';
 
-export default function GitTree({ projects, liveSessionIds, onOpenFile, onOpenDiff, onCycleTab, onBack }) {
+export default function GitTree({ projects, liveSessionIds, onOpenFile, onOpenDiff, onOpenShell, onOpenCommit, onCycleTab, onBack }) {
   const [selProj, setSelProj]         = useState(0);
   const [gitData, setGitData]         = useState({});
   const [loading, setLoading]         = useState(true);
@@ -91,7 +91,7 @@ export default function GitTree({ projects, liveSessionIds, onOpenFile, onOpenDi
   const projRows = Math.min(numProjects, Math.max(3, Math.floor((rows - CHROME_ROWS) / 3)));
   const { start: projStart } = computeViewport(numProjects, sel, projRows);
   const visibleProjects = projects.slice(projStart, projStart + projRows);
-  const hints = '↑↓ move · ←→ projects/files · ⏎/double-click open · d diff · e dir/git · r refresh · wheel scroll · space/b page · z zoom · 1-9 tab · x close tab · ⇥ next · q back';
+  const hints = '↑↓ move · ←→ projects/files · ⏎/double-click open · d diff · t terminal · C commit · e dir/git · r refresh · wheel scroll · space/b page · z zoom · 1-9 tab · x close tab · ⇥ next · q back';
   const contentBudget = Math.max(1, rows - CHROME_ROWS - projRows - 3 - footerHeight(hints));
   const maxOffset = Math.max(0, contentItems.length - contentBudget);
   const off = Math.min(contentOffset, maxOffset);
@@ -183,6 +183,9 @@ export default function GitTree({ projects, liveSessionIds, onOpenFile, onOpenDi
     if (key.rightArrow || input === 'l') { setFocus('content'); if (cursor < 0) moveCursor(1); return; }
     if (key.pageDown || input === ' ') { setContentOffset(o => Math.min(Math.min(o, maxOffset) + contentBudget, maxOffset)); return; }
     if (key.pageUp || input === 'b') { setContentOffset(o => Math.max(Math.min(o, maxOffset) - contentBudget, 0)); return; }
+    // t and C always apply to the current project regardless of which side has focus
+    if (input === 't') { if (currentProject) onOpenShell?.(currentProject.projectPath); return; }
+    if (input === 'C') { if (currentProject) onOpenCommit?.(status?.root || currentProject.projectPath); return; }
     if (focus === 'projects') {
       if (key.downArrow || input === 'j') { setSelProj(s => Math.min(s + 1, numProjects - 1)); return; }
       if (key.upArrow || input === 'k') { setSelProj(s => Math.max(s - 1, 0)); return; }
@@ -195,6 +198,7 @@ export default function GitTree({ projects, liveSessionIds, onOpenFile, onOpenDi
     if (input === 'd' && !dirMode) {
       const item = contentItems[cursor];
       if (item?.kind === 'file' && !item.untracked) onOpenDiff(status.root, item.name);
+      return;
     }
   });
 

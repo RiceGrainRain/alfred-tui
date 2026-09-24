@@ -34,7 +34,7 @@ function buildFlat(projects, filter) {
 export default function SessionList({
   projects, showArchived, liveSessionIds,
   onToggleShowArchived, onArchiveToggle, onStarToggle, onOpen, onNew, onView,
-  onSwitchToPlans, onCycleTab, onFilterMode, onQuit,
+  onOpenShell, onSwitchToPlans, onCycleTab, onFilterMode, onQuit,
 }) {
   const [selected, setSelected] = useState(0);
   const [filterMode, setFilterMode] = useState(false);
@@ -52,10 +52,7 @@ export default function SessionList({
 
   const hints = filterMode
     ? 'type to filter · ⏎/Esc done'
-    : [
-        '↑↓/click/wheel move · ⏎/double-click open · n new · v view · a archive · s star',
-        '/ find · A archived · p plans · 1-9 tab · x close tab · z zoom · ⇥ cycle · q quit',
-      ];
+    : '↑↓/click/wheel move · ⏎/double-click open · n new · t terminal · v view · a archive · s star · / find · A archived · p plans · 1-9 tab · x close tab · z zoom · ⇥ cycle · q quit';
 
   // Chrome above/below the list: app chrome (CHROME_ROWS) + header (1) +
   // search bar (3, bordered) + footer (wrapped). Everything else is the scrollable card list. Cards are 4
@@ -114,6 +111,7 @@ export default function SessionList({
     if (!cur) return;
     if (key.return) { onOpen(cur); return; }
     if (input === 'n') { onNew(cur); return; }
+    if (input === 't') { onOpenShell?.(cur); return; }
     if (input === 'v') { onView(cur); return; }
     if (input === 'a') { onArchiveToggle(cur); return; }
     if (input === 's') { onStarToggle(cur); return; }

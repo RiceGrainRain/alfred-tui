@@ -16,6 +16,7 @@ import { attachMouseListener, disableMouse } from './mouse.js';
 
 const EDITOR = process.env.ALFRED_EDITOR || 'nvim';
 const EDITOR_NAME = path.basename(EDITOR.split(' ')[0]);
+const SHELL = process.env.SHELL || 'zsh';
 
 function sessionLabel(session) {
   return session.name || session.aiTitle || session.summary || session.sessionId;
@@ -177,6 +178,29 @@ export default function App() {
     });
   };
 
+  // Open a plain shell tab in `projectPath`. Label uses the last two segments
+  // of the path so it's recognisable when several projects are open.
+  const openShell = (projectPath) => {
+    openNewTab({
+      kind: 'shell',
+      cmd: SHELL,
+      cwd: projectPath,
+      label: `sh:${shortLabel(path.basename(projectPath), 18)}`,
+    });
+  };
+
+  // Open an interactive git-commit flow in a tab: stage individual hunks
+  // (git add -p) then write the commit message (git commit -v).
+  // Runs in the git repo root so paths are correct.
+  const openCommit = (projectPath) => {
+    openNewTab({
+      kind: 'shell',
+      cmd: `git add -p && git commit -v`,
+      cwd: projectPath,
+      label: `commit:${shortLabel(path.basename(projectPath), 14)}`,
+    });
+  };
+
   const onOpenPlanInTab = ({ plan, trackedEntry }) => {
     if (plan) {
       openFile(planModePath(plan.filename), { kind: 'plan', label: `plan:${shortLabel(plan.title)}` });
@@ -321,6 +345,7 @@ export default function App() {
         onOpen={onOpen}
         onNew={onNew}
         onView={onView}
+        onOpenShell={(session) => openShell(session.projectPath)}
         onSwitchToPlans={() => setRootTab('plans')}
         onCycleTab={cycleTab}
         onFilterMode={setInputLocked}
@@ -349,6 +374,8 @@ export default function App() {
         liveSessionIds={liveSessionIds}
         onOpenFile={openFile}
         onOpenDiff={openDiff}
+        onOpenShell={(projectPath) => openShell(projectPath)}
+        onOpenCommit={(projectPath) => openCommit(projectPath)}
         onCycleTab={cycleTab}
         onBack={() => setRootTab('sessions')}
       />
