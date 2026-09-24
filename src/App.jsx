@@ -67,6 +67,13 @@ export default function App() {
   const [tabs, setTabs] = useState([]);
   const [activeTabId, setActiveTabId] = useState(null);
   const [inputLocked, setInputLocked] = useState(false); // a screen is capturing text (filter mode)
+  // Collapsed project groups in the sessions list. Lives here (not in
+  // SessionList, which unmounts on tab switch) and is persisted in the db.
+  const [collapsedProjects, setCollapsedProjectsState] = useState(() => new Set());
+  const setCollapsedProjects = (next) => {
+    setCollapsedProjectsState(next);
+    db.setSetting('collapsedProjects', [...next]);
+  };
   const tabsRef = useRef(tabs);
   tabsRef.current = tabs;
   const activeTabRef = useRef(activeTabId);
@@ -86,6 +93,7 @@ export default function App() {
           sessionIndex.reconcileCacheFromFilesystem();
         }
         tmux.setupSessionUi();
+        setCollapsedProjectsState(new Set(db.getSetting('collapsedProjects') || []));
         refresh(showArchived);
         setStatus('ready');
       } catch (err) {
@@ -339,6 +347,8 @@ export default function App() {
         projects={projects}
         showArchived={showArchived}
         liveSessionIds={liveSessionIds}
+        collapsed={collapsedProjects}
+        onCollapsedChange={setCollapsedProjects}
         onToggleShowArchived={onToggleShowArchived}
         onArchiveToggle={onArchiveToggle}
         onStarToggle={onStarToggle}

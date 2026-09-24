@@ -88,7 +88,9 @@ own tmux config if you want clicks there — and quitting removes only alfred's 
 
 **Sidebar (sessions):** `↑`/`↓` (or `k`/`j`) move · `Enter` open (resume) · `n` new session ·
 `v` view transcript · `a` archive · `s` star · `/` filter · `A` show archived · `p` plans · `q` quit ·
-click a card to select it, click it again to open it
+click a card to select it, click it again to open it · click a project header (or `⏎` on it, `c`,
+`←`/`→`) to collapse/expand the project · `C` collapse/expand all (remembered across restarts) ·
+`n`/`t` on a header act on that project
 
 **Transcript view:** `↑`/`↓` prev/next turn · `space`/`b` page within a turn · `g`/`G` first/last ·
 `o` open live · `q`/`Esc` back
