@@ -48,6 +48,9 @@ function rowKey(row) {
 
 const HEADER_H = 1;
 const CARD_H = 4; // SessionCard: border-top, title, meta, border-bottom
+// SearchBar: a bordered box right under the app chrome and the count line.
+const SEARCH_TOP = CHROME_ROWS + 2;
+const SEARCH_H = 3;
 
 export default function SessionList({
   projects, showArchived, liveSessionIds, collapsed, onCollapsedChange,
@@ -119,8 +122,13 @@ export default function SessionList({
   useEffect(() => {
     // Click a header: select + toggle. Click a card: select it and make it
     // the active work pane (same as ⏎) — keyboard/wheel still move the
-    // selection without opening anything.
+    // selection without opening anything. Clicking the search bar starts
+    // filtering; clicking anywhere else finishes it (keeping the text, like
+    // ⏎/Esc) — otherwise filter mode would keep swallowing keys, and the
+    // app's global tab keys with it, after focus has visibly moved on.
     const onClick = ({ row }) => {
+      if (row >= SEARCH_TOP && row < SEARCH_TOP + SEARCH_H) { setFilterMode(true); return; }
+      setFilterMode(false);
       const idx = rowMapRef.current[row];
       if (idx == null) return;
       const { rows: items, onOpen: open, toggleGroup: toggle } = clickRef.current;
@@ -198,7 +206,7 @@ export default function SessionList({
   // Below the app chrome: header (1 row), SearchBar bordered box (3 rows),
   // then the list.
   const rowMap = {};
-  let currentRow = CHROME_ROWS + 5;
+  let currentRow = SEARCH_TOP + SEARCH_H;
   for (let i = start; i < rows.length; i++) {
     const row = rows[i];
     const spaced = items.length > 0;
