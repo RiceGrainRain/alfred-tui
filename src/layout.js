@@ -75,11 +75,23 @@ function footerWidth() {
   return Math.max(10, (process.stdout.columns || 80) - 2);
 }
 
+// Whether footers spell out their keybinds (toggled with ?, persisted by the
+// app). Collapsed footers are always the one-line "? keys" stub. Kept here as
+// module state so footerHeight() and Footer agree on the row count without
+// every screen having to thread the flag down to both.
+let hintsVisible = true;
+function setHintsVisible(v) { hintsVisible = !!v; }
+function hintsAreVisible() { return hintsVisible; }
+
 // Rows the footer will occupy for these hints at the current width.
 function footerHeight(hints) {
+  if (!hintsVisible) return 1;
   const w = footerWidth();
   const n = layoutHints(hints, w).reduce((sum, l) => sum + Math.max(1, Math.ceil(l.length / w)), 0);
   return Math.max(1, n);
 }
 
-export { CHROME_ROWS, computeViewport, layoutTabStrip, hitSegment, layoutHints, footerWidth, footerHeight };
+export {
+  CHROME_ROWS, computeViewport, layoutTabStrip, hitSegment, layoutHints,
+  footerWidth, footerHeight, setHintsVisible, hintsAreVisible,
+};

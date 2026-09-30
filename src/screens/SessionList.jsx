@@ -40,6 +40,11 @@ function buildRows(projects, filter, collapsed) {
   return rows;
 }
 
+// Identity of a row across rebuilds of the list (indexes are not stable).
+function rowKey(row) {
+  return row.kind === 'header' ? `h:${row.projectPath}` : `s:${row.session.sessionId}`;
+}
+
 const HEADER_H = 1;
 const CARD_H = 4; // SessionCard: border-top, title, meta, border-bottom
 
@@ -54,7 +59,24 @@ export default function SessionList({
   const rowMapRef = useRef({});
 
   const rows = useMemo(() => buildRows(projects, filter, collapsed), [projects, filter, collapsed]);
-  const sel = Math.max(0, Math.min(selected, rows.length - 1));
+
+  // The list is rebuilt on a timer, and rows move: a new session appears at
+  // the top of its project, and a live one keeps bumping its project up the
+  // sort. Re-find the row the cursor was on so it doesn't slide onto a
+  // neighbour underneath the user.
+  const anchorRef = useRef(null);
+  const seenRowsRef = useRef(rows);
+  let selectedIdx = selected;
+  if (seenRowsRef.current !== rows) {
+    seenRowsRef.current = rows;
+    const idx = anchorRef.current ? rows.findIndex(r => rowKey(r) === anchorRef.current) : -1;
+    if (idx >= 0 && idx !== selected) {
+      selectedIdx = idx;
+      setSelected(idx);
+    }
+  }
+  const sel = Math.max(0, Math.min(selectedIdx, rows.length - 1));
+  anchorRef.current = rows[sel] ? rowKey(rows[sel]) : null;
   const sessionCount = useMemo(
     () => rows.reduce((n, r) => n + (r.kind === 'header' ? r.sessions.length : 0), 0),
     [rows]
@@ -83,7 +105,7 @@ export default function SessionList({
 
   const hints = filterMode
     ? 'type to filter · ⏎/Esc done'
-    : '↑↓/click/wheel move · ⏎/double-click open · ←→/c collapse · C collapse all · n new · t terminal · v view · a archive · s star · / find · A archived · p plans · 1-9 tab · x close tab · z zoom · ⇥ cycle · q quit';
+    : '↑↓/wheel move · ⏎/click open · ←→/c collapse · C collapse all · n new · t terminal · v view · a archive · s star · / find · A archived · p plans · 1-9 tab · |/- split · u unsplit · x close tab · z zoom · ⇥ cycle · ? keys · q quit';
 
   // Chrome above/below the list: app chrome (CHROME_ROWS) + header (1) +
   // search bar (3, bordered) + footer (wrapped). Everything else is the
@@ -110,19 +132,20 @@ export default function SessionList({
   const lastRef = useRef(0);
   lastRef.current = rows.length - 1;
   const clickRef = useRef({});
-  clickRef.current = { sel, rows, onOpen, toggleGroup };
+  clickRef.current = { rows, onOpen, toggleGroup };
   useEffect(() => {
-    // Click a header: select + toggle. Click a card: select; click the
-    // already-selected card: open it.
+    // Click a header: select + toggle. Click a card: select it and make it
+    // the active work pane (same as ⏎) — keyboard/wheel still move the
+    // selection without opening anything.
     const onClick = ({ row }) => {
       const idx = rowMapRef.current[row];
       if (idx == null) return;
-      const { sel: cur, rows: items, onOpen: open, toggleGroup: toggle } = clickRef.current;
+      const { rows: items, onOpen: open, toggleGroup: toggle } = clickRef.current;
       const item = items[idx];
       if (!item) return;
       setSelected(idx);
       if (item.kind === 'header') toggle(item);
-      else if (idx === cur) open(item.session);
+      else open(item.session);
     };
     const onWheel = ({ dir }) => {
       setSelected(s => Math.max(0, Math.min(s + dir, lastRef.current)));

@@ -13,6 +13,7 @@ import * as tmux from './tmux.js';
 import path from 'path';
 import { listPlanModePlans, listTrackedProgress, planModePath } from './plans.js';
 import { attachMouseListener, disableMouse } from './mouse.js';
+import { setHintsVisible } from './layout.js';
 
 const EDITOR = process.env.ALFRED_EDITOR || 'nvim';
 const EDITOR_NAME = path.basename(EDITOR.split(' ')[0]);
@@ -65,6 +66,11 @@ export default function App() {
   const [confirm, setConfirm] = useState(null); // { message, onYes }
   // Work-pane tabs: [{ id: tmux pane id, kind: 'claude'|'file'|'plan'|'diff', label, sessionId? }]
   const [tabs, setTabs] = useState([]);
+  // Tab ids currently on screen in the work area. More than one = split view.
+  const [visible, setVisible] = useState([]);
+  // Armed split direction ('h' side by side, 'v' stacked): the next tab that
+  // gets opened or selected joins the work area instead of replacing a pane.
+  const [splitDir, setSplitDir] = useState(null);
   const [activeTabId, setActiveTabId] = useState(null);
   const [inputLocked, setInputLocked] = useState(false); // a screen is capturing text (filter mode)
   // Collapsed project groups in the sessions list. Lives here (not in
@@ -74,14 +80,40 @@ export default function App() {
     setCollapsedProjectsState(next);
     db.setSetting('collapsedProjects', [...next]);
   };
+  // Footer keybind hints. The flag also lives in layout.js so Footer and the
+  // screens' height budgets stay in step; keep the two writes together.
+  const [showHints, setShowHintsState] = useState(true);
+  const applyShowHints = (next, { persist = true } = {}) => {
+    setShowHintsState(next);
+    setHintsVisible(next);
+    if (persist) db.setSetting('showHints', next);
+  };
   const tabsRef = useRef(tabs);
   tabsRef.current = tabs;
   const activeTabRef = useRef(activeTabId);
   activeTabRef.current = activeTabId;
 
+  // Re-read the cache, but only swap in new arrays when something the sidebar
+  // actually draws has changed — refresh() runs on a timer, and a fresh array
+  // every tick would re-render (and reflow the selection) for nothing.
+  const sigRef = useRef({ projects: null, plans: null });
   const refresh = useCallback((archivedFlag) => {
-    setProjects(sessionIndex.buildProjectsFromCache(archivedFlag));
-    setPlans(listPlanModePlans());
+    const nextProjects = sessionIndex.buildProjectsFromCache(archivedFlag);
+    const projectsSig = nextProjects
+      .map(p => p.sessions
+        .map(s => `${s.sessionId}/${s.modified}/${s.messageCount}/${s.name}/${s.aiTitle}/${s.starred}/${s.archived}`)
+        .join(','))
+      .join('|');
+    if (projectsSig !== sigRef.current.projects) {
+      sigRef.current.projects = projectsSig;
+      setProjects(nextProjects);
+    }
+    const nextPlans = listPlanModePlans();
+    const plansSig = nextPlans.map(p => `${p.filename}/${p.title}/${p.modified}`).join('|');
+    if (plansSig !== sigRef.current.plans) {
+      sigRef.current.plans = plansSig;
+      setPlans(nextPlans);
+    }
   }, []);
 
   useEffect(() => {
@@ -94,6 +126,7 @@ export default function App() {
         }
         tmux.setupSessionUi();
         setCollapsedProjectsState(new Set(db.getSetting('collapsedProjects') || []));
+        applyShowHints(db.getSetting('showHints') ?? true, { persist: false });
         refresh(showArchived);
         setStatus('ready');
       } catch (err) {
@@ -104,6 +137,24 @@ export default function App() {
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Keep the sidebar in step with the filesystem: a session started with `n`
+  // (or in any other terminal) only exists once claude writes its first JSONL
+  // line, which is well after the tab opened. The reconcile is incremental —
+  // a stat per transcript, ~1ms when nothing moved — and refresh() no-ops
+  // unless the result actually differs, so the list stays still when it is.
+  useEffect(() => {
+    if (status !== 'ready') return;
+    const timer = setInterval(() => {
+      try {
+        sessionIndex.reconcileCacheFromFilesystem();
+        refresh(showArchived);
+      } catch {
+        // A transient FS/DB hiccup must not kill the timer.
+      }
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [status, showArchived, refresh]);
 
   const tracked = useMemo(
     () => listTrackedProgress(projects.map(p => p.projectPath)),
@@ -117,8 +168,9 @@ export default function App() {
     setRootTab(t => t === 'sessions' ? 'plans' : t === 'plans' ? 'git' : 'sessions');
   }, []);
 
-  // Drop tabs whose process exited (e.g. :q in nvim, claude quit). If the
-  // visible tab died, the next surviving tab is swapped in.
+  // Drop tabs whose process exited (e.g. :q in nvim, claude quit). Panes left
+  // beside them in a split just reflow; if the work area emptied, the next
+  // surviving tab is swapped in.
   useEffect(() => {
     if (status !== 'ready') return;
     const timer = setInterval(() => {
@@ -128,38 +180,89 @@ export default function App() {
       const remaining = current.filter(t => live.has(t.id));
       if (remaining.length === current.length) return;
       setTabs(remaining);
+      const ids = remaining.map(t => t.id);
+      let vis = tmux.visibleTabs(ids);
       const active = activeTabRef.current;
-      if (active && live.has(active)) return;
-      const idx = current.findIndex(t => t.id === active);
-      const next = remaining[Math.min(Math.max(idx, 0), remaining.length - 1)];
-      if (next) tmux.showTab(next.id, tmux.visibleTab(remaining.map(t => t.id)), { focus: false });
-      setActiveTabId(next?.id ?? null);
+      let next = live.has(active) ? active : vis[0] ?? null;
+      if (!next) {
+        const idx = current.findIndex(t => t.id === active);
+        next = remaining[Math.min(Math.max(idx, 0), remaining.length - 1)]?.id ?? null;
+        if (next) {
+          tmux.showTab(next, null, { focus: false });
+          vis = tmux.visibleTabs(ids);
+        }
+      }
+      setVisible(vis);
+      setActiveTabId(next);
     }, 2000);
     return () => clearInterval(timer);
   }, [status]);
 
-  const visibleTabId = () => tmux.visibleTab(tabsRef.current.map(t => t.id));
-
-  const openNewTab = ({ cmd, cwd, label, ...meta }) => {
-    const id = tmux.openTab(cmd, { cwd, label, visibleId: visibleTabId() });
-    if (!id) return;
-    setTabs(t => [...t, { id, label, ...meta }]);
-    setActiveTabId(id);
+  // tmux is the source of truth for what's on screen — the user can also move
+  // panes around with tmux's own keys — so re-read it before every operation.
+  const readVisible = (extraId) => {
+    const ids = tabsRef.current.map(t => t.id);
+    return tmux.visibleTabs(extraId ? [...ids, extraId] : ids);
   };
 
-  const selectTab = (id, opts) => {
+  // The visible pane a tab replaces, or splits off: the active one when it's
+  // on screen, else whatever is leftmost.
+  const anchor = (vis) => (vis.includes(activeTabRef.current) ? activeTabRef.current : vis[0] ?? null);
+
+  const openNewTab = ({ cmd, cwd, label, ...meta }) => {
+    const vis = readVisible();
+    const at = anchor(vis);
+    const dir = at ? splitDir : null; // nothing to split off an empty work area
+    const id = tmux.openTab(cmd, { cwd, label, visibleId: at, splitOf: dir ? at : null, dir });
     if (!id) return;
-    tmux.showTab(id, visibleTabId(), opts);
+    setTabs(t => [...t, { id, label, ...meta }]);
+    setVisible(readVisible(id));
     setActiveTabId(id);
+    setSplitDir(null);
+  };
+
+  const selectTab = (id, opts = {}) => {
+    if (!id) return;
+    const vis = readVisible();
+    if (vis.includes(id)) {
+      // Already on screen (in a split): just make it the active pane.
+      if (opts.focus !== false) tmux.focusPane(id);
+    } else {
+      const at = anchor(vis);
+      if (splitDir && at) tmux.splitTab(id, at, { dir: splitDir, ...opts });
+      else tmux.showTab(id, at, opts);
+    }
+    setVisible(readVisible(id));
+    setActiveTabId(id);
+    setSplitDir(null);
   };
 
   const closeActiveTab = () => {
-    const idx = tabs.findIndex(t => t.id === activeTabId);
+    const id = activeTabId;
+    const idx = tabs.findIndex(t => t.id === id);
     if (idx < 0) return;
-    const next = tabs[idx + 1] || tabs[idx - 1];
-    tmux.closeTab(activeTabId, { visibleId: visibleTabId(), nextId: next?.id });
-    setTabs(t => t.filter(x => x.id !== activeTabId));
-    setActiveTabId(next?.id ?? null);
+    const vis = readVisible();
+    const rest = vis.filter(v => v !== id);
+    // Only pull another tab in when this was the work area's last pane.
+    const backfill = vis.includes(id) && rest.length === 0 ? (tabs[idx + 1] || tabs[idx - 1]) : null;
+    tmux.closeTab(id, { visibleId: vis.includes(id) ? id : null, nextId: backfill?.id });
+    setTabs(t => t.filter(x => x.id !== id));
+    const nextVisible = backfill ? [backfill.id] : rest;
+    setVisible(nextVisible);
+    setActiveTabId(nextVisible[0] ?? null);
+  };
+
+  // u: take the active pane out of the split and park it back in the stash.
+  // The tab stays in the strip and its process keeps running.
+  const unsplitActiveTab = () => {
+    const vis = readVisible();
+    if (vis.length < 2) return;
+    const id = vis.includes(activeTabId) ? activeTabId : vis[vis.length - 1];
+    tmux.hideTab(id);
+    const rest = vis.filter(v => v !== id);
+    setVisible(rest);
+    setActiveTabId(rest[0] ?? null);
+    tmux.focusSidebar();
   };
 
   const onRootTab = (key) => {
@@ -297,10 +400,16 @@ export default function App() {
 
   // Global tab keys, available on every screen unless a screen is capturing
   // text: 1–9 switch work tab, x closes the active one, z zooms the sidebar.
+  // | / - arm a split so the next tab opens beside the active pane instead of
+  // replacing it (press again to cancel); u undoes one split.
   useInput((input) => {
     if (input >= '1' && input <= '9') { selectTab(tabs[+input - 1]?.id, { focus: false }); return; }
     if (input === 'x') { closeActiveTab(); return; }
     if (input === 'z') { tmux.toggleZoom(); return; }
+    if (input === '|') { setSplitDir(d => (d === 'h' ? null : 'h')); return; }
+    if (input === '-') { setSplitDir(d => (d === 'v' ? null : 'v')); return; }
+    if (input === 'u') { unsplitActiveTab(); return; }
+    if (input === '?') { applyShowHints(!showHints); return; }
   }, { isActive: status === 'ready' && !confirm && !inputLocked });
 
   const liveSessionIds = useMemo(
@@ -408,6 +517,8 @@ export default function App() {
         onRootTab={onRootTab}
         tabs={tabs}
         activeTabId={activeTabId}
+        visibleIds={visible}
+        splitDir={splitDir}
         onSelectTab={(id) => selectTab(id, { focus: false })}
         onCloseTab={closeActiveTab}
       />
