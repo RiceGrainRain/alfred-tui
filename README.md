@@ -61,8 +61,9 @@ state plus a small session cache in SQLite (`~/.alfred/alfred.db`).
   drag the pane divider to resize; `z` zooms the sidebar to full width (e.g. to see a deep tree)
   and back.
 - The sidebar re-indexes in the background, so a session you start with `n` (or in any other
-  terminal) shows up on its own once claude writes its first line — with the cursor staying on
-  whatever row you were already on.
+  terminal) shows up on its own once claude writes its first line, and a plan or `plan-tracker.md`
+  written while you're working appears in the Plans tab the same way — with the cursor staying on
+  whatever row you were already on rather than sliding as the list re-sorts.
 - Every screen shows its full set of keybinds; the hints wrap onto extra lines when the sidebar is
   narrow instead of being cut off. `?` collapses them to a single `? keys` line when you know them
   and would rather have the rows (remembered across restarts).

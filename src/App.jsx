@@ -61,6 +61,7 @@ export default function App() {
   const [projects, setProjects] = useState([]);
   const [showArchived, setShowArchived] = useState(false);
   const [plans, setPlans] = useState([]);
+  const [tracked, setTracked] = useState([]);
   const [rootTab, setRootTab] = useState('sessions'); // sessions | plans | git
   const [stack, setStack] = useState([]); // detail views pushed on top of the active root tab
   const [confirm, setConfirm] = useState(null); // { message, onYes }
@@ -96,7 +97,7 @@ export default function App() {
   // Re-read the cache, but only swap in new arrays when something the sidebar
   // actually draws has changed — refresh() runs on a timer, and a fresh array
   // every tick would re-render (and reflow the selection) for nothing.
-  const sigRef = useRef({ projects: null, plans: null });
+  const sigRef = useRef({ projects: null, plans: null, tracked: null });
   const refresh = useCallback((archivedFlag) => {
     const nextProjects = sessionIndex.buildProjectsFromCache(archivedFlag);
     const projectsSig = nextProjects
@@ -113,6 +114,17 @@ export default function App() {
     if (plansSig !== sigRef.current.plans) {
       sigRef.current.plans = plansSig;
       setPlans(nextPlans);
+    }
+    // Tracked progress is discovered from the projects we just built, so it
+    // has to be re-read here rather than memoised off `projects` — a new
+    // plan-tracker.md appears without the session list having changed at all.
+    const nextTracked = listTrackedProgress(nextProjects.map(p => p.projectPath));
+    const trackedSig = nextTracked
+      .map(t => `${t.projectPath}/${t.modified}/${t.plan?.done ?? ''}/${t.plan?.total ?? ''}/${t.todos.length}`)
+      .join('|');
+    if (trackedSig !== sigRef.current.tracked) {
+      sigRef.current.tracked = trackedSig;
+      setTracked(nextTracked);
     }
   }, []);
 
@@ -155,11 +167,6 @@ export default function App() {
     }, 3000);
     return () => clearInterval(timer);
   }, [status, showArchived, refresh]);
-
-  const tracked = useMemo(
-    () => listTrackedProgress(projects.map(p => p.projectPath)),
-    [projects]
-  );
 
   const push = (view) => setStack(s => [...s, view]);
   const pop = () => setStack(s => s.slice(0, -1));

@@ -5,6 +5,7 @@ import Footer from '../components/Footer.jsx';
 import SearchBar from '../components/SearchBar.jsx';
 import SessionCard from '../components/SessionCard.jsx';
 import { CHROME_ROWS, footerHeight } from '../layout.js';
+import { useAnchoredSelection } from '../use-anchored-selection.js';
 
 function sessionLabel(session) {
   return session.name || session.aiTitle || session.summary || session.sessionId;
@@ -53,30 +54,12 @@ export default function SessionList({
   onToggleShowArchived, onArchiveToggle, onStarToggle, onOpen, onNew, onView,
   onOpenShell, onSwitchToPlans, onCycleTab, onFilterMode, onQuit,
 }) {
-  const [selected, setSelected] = useState(0);
   const [filterMode, setFilterMode] = useState(false);
   const [filter, setFilter] = useState('');
   const rowMapRef = useRef({});
 
   const rows = useMemo(() => buildRows(projects, filter, collapsed), [projects, filter, collapsed]);
-
-  // The list is rebuilt on a timer, and rows move: a new session appears at
-  // the top of its project, and a live one keeps bumping its project up the
-  // sort. Re-find the row the cursor was on so it doesn't slide onto a
-  // neighbour underneath the user.
-  const anchorRef = useRef(null);
-  const seenRowsRef = useRef(rows);
-  let selectedIdx = selected;
-  if (seenRowsRef.current !== rows) {
-    seenRowsRef.current = rows;
-    const idx = anchorRef.current ? rows.findIndex(r => rowKey(r) === anchorRef.current) : -1;
-    if (idx >= 0 && idx !== selected) {
-      selectedIdx = idx;
-      setSelected(idx);
-    }
-  }
-  const sel = Math.max(0, Math.min(selectedIdx, rows.length - 1));
-  anchorRef.current = rows[sel] ? rowKey(rows[sel]) : null;
+  const [sel, setSelected] = useAnchoredSelection(rows, rowKey);
   const sessionCount = useMemo(
     () => rows.reduce((n, r) => n + (r.kind === 'header' ? r.sessions.length : 0), 0),
     [rows]
