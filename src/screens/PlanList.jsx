@@ -3,6 +3,7 @@ import { Box, Text, useInput } from 'ink';
 import { mouseEmitter } from '../mouse.js';
 import Footer from '../components/Footer.jsx';
 import { CHROME_ROWS, computeViewport, footerHeight } from '../layout.js';
+import { useAnchoredSelection } from '../use-anchored-selection.js';
 import { relativeTime } from '../time.js';
 
 function shortPath(p) {
@@ -20,6 +21,12 @@ function buildFlat(plans, tracked) {
   for (const plan of plans) flat.push({ kind: 'plan', section: 'Plan-mode plans', plan });
   for (const entry of tracked) flat.push({ kind: 'tracked', section: 'Tracked progress', entry });
   return flat;
+}
+
+// Identity of a row across rebuilds of the list (both sections sort by mtime,
+// so editing a plan moves it).
+function itemKey(item) {
+  return item.kind === 'plan' ? `p:${item.plan.filename}` : `t:${item.entry.projectPath}`;
 }
 
 function PlanCard({ item, selected }) {
@@ -47,10 +54,9 @@ function PlanCard({ item, selected }) {
 }
 
 export default function PlanList({ plans, tracked, onOpenPlan, onOpenTracked, onOpenInTab, onSwitchToSessions, onCycleTab, onQuit }) {
-  const [selected, setSelected] = useState(0);
   const flat = useMemo(() => buildFlat(plans, tracked), [plans, tracked]);
   const rowMapRef = useRef({});
-  const sel = Math.max(0, Math.min(selected, flat.length - 1));
+  const [sel, setSelected] = useAnchoredSelection(flat, itemKey);
 
   const rows = process.stdout.rows || 24;
   const hints = '↑↓/click/wheel move · ⏎/double-click view · o open in tab · s sessions · 1-9 tab · |/- split · u unsplit · x close tab · z zoom · ⇥ cycle · ? keys · q quit';
