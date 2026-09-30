@@ -13,6 +13,7 @@ import * as tmux from './tmux.js';
 import path from 'path';
 import { listPlanModePlans, listTrackedProgress, planModePath } from './plans.js';
 import { attachMouseListener, disableMouse } from './mouse.js';
+import { setHintsVisible } from './layout.js';
 
 const EDITOR = process.env.ALFRED_EDITOR || 'nvim';
 const EDITOR_NAME = path.basename(EDITOR.split(' ')[0]);
@@ -79,14 +80,40 @@ export default function App() {
     setCollapsedProjectsState(next);
     db.setSetting('collapsedProjects', [...next]);
   };
+  // Footer keybind hints. The flag also lives in layout.js so Footer and the
+  // screens' height budgets stay in step; keep the two writes together.
+  const [showHints, setShowHintsState] = useState(true);
+  const applyShowHints = (next, { persist = true } = {}) => {
+    setShowHintsState(next);
+    setHintsVisible(next);
+    if (persist) db.setSetting('showHints', next);
+  };
   const tabsRef = useRef(tabs);
   tabsRef.current = tabs;
   const activeTabRef = useRef(activeTabId);
   activeTabRef.current = activeTabId;
 
+  // Re-read the cache, but only swap in new arrays when something the sidebar
+  // actually draws has changed — refresh() runs on a timer, and a fresh array
+  // every tick would re-render (and reflow the selection) for nothing.
+  const sigRef = useRef({ projects: null, plans: null });
   const refresh = useCallback((archivedFlag) => {
-    setProjects(sessionIndex.buildProjectsFromCache(archivedFlag));
-    setPlans(listPlanModePlans());
+    const nextProjects = sessionIndex.buildProjectsFromCache(archivedFlag);
+    const projectsSig = nextProjects
+      .map(p => p.sessions
+        .map(s => `${s.sessionId}/${s.modified}/${s.messageCount}/${s.name}/${s.aiTitle}/${s.starred}/${s.archived}`)
+        .join(','))
+      .join('|');
+    if (projectsSig !== sigRef.current.projects) {
+      sigRef.current.projects = projectsSig;
+      setProjects(nextProjects);
+    }
+    const nextPlans = listPlanModePlans();
+    const plansSig = nextPlans.map(p => `${p.filename}/${p.title}/${p.modified}`).join('|');
+    if (plansSig !== sigRef.current.plans) {
+      sigRef.current.plans = plansSig;
+      setPlans(nextPlans);
+    }
   }, []);
 
   useEffect(() => {
@@ -99,6 +126,7 @@ export default function App() {
         }
         tmux.setupSessionUi();
         setCollapsedProjectsState(new Set(db.getSetting('collapsedProjects') || []));
+        applyShowHints(db.getSetting('showHints') ?? true, { persist: false });
         refresh(showArchived);
         setStatus('ready');
       } catch (err) {
@@ -109,6 +137,24 @@ export default function App() {
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Keep the sidebar in step with the filesystem: a session started with `n`
+  // (or in any other terminal) only exists once claude writes its first JSONL
+  // line, which is well after the tab opened. The reconcile is incremental —
+  // a stat per transcript, ~1ms when nothing moved — and refresh() no-ops
+  // unless the result actually differs, so the list stays still when it is.
+  useEffect(() => {
+    if (status !== 'ready') return;
+    const timer = setInterval(() => {
+      try {
+        sessionIndex.reconcileCacheFromFilesystem();
+        refresh(showArchived);
+      } catch {
+        // A transient FS/DB hiccup must not kill the timer.
+      }
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [status, showArchived, refresh]);
 
   const tracked = useMemo(
     () => listTrackedProgress(projects.map(p => p.projectPath)),
@@ -363,6 +409,7 @@ export default function App() {
     if (input === '|') { setSplitDir(d => (d === 'h' ? null : 'h')); return; }
     if (input === '-') { setSplitDir(d => (d === 'v' ? null : 'v')); return; }
     if (input === 'u') { unsplitActiveTab(); return; }
+    if (input === '?') { applyShowHints(!showHints); return; }
   }, { isActive: status === 'ready' && !confirm && !inputLocked });
 
   const liveSessionIds = useMemo(

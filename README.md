@@ -60,8 +60,12 @@ state plus a small session cache in SQLite (`~/.alfred/alfred.db`).
 - Mouse everywhere: click a session to open it, click tabs and tree rows; scroll with the wheel;
   drag the pane divider to resize; `z` zooms the sidebar to full width (e.g. to see a deep tree)
   and back.
+- The sidebar re-indexes in the background, so a session you start with `n` (or in any other
+  terminal) shows up on its own once claude writes its first line — with the cursor staying on
+  whatever row you were already on.
 - Every screen shows its full set of keybinds; the hints wrap onto extra lines when the sidebar is
-  narrow instead of being cut off.
+  narrow instead of being cut off. `?` collapses them to a single `? keys` line when you know them
+  and would rather have the rows (remembered across restarts).
 
 ## Requirements
 
@@ -94,7 +98,8 @@ own tmux config if you want clicks there — and quitting removes only alfred's 
 
 **Everywhere:** click `Sessions`/`Plans`/`Git` or `Tab` to cycle · `1`–`9` / click switch work tab ·
 `|` / `-` split the work area with the next tab you pick (press again to cancel) · `u` unsplit the
-focused pane · `x` / click `×` close work tab · `z` zoom sidebar · mouse wheel scrolls
+focused pane · `x` / click `×` close work tab · `z` zoom sidebar · `?` show/hide the keybind hints ·
+mouse wheel scrolls
 
 **Sidebar (sessions):** `↑`/`↓` (or `k`/`j`) move · `Enter` open (resume) · `n` new session ·
 `v` view transcript · `a` archive · `s` star · `/` filter · `A` show archived · `p` plans · `q` quit ·

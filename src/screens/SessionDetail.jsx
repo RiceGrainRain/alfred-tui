@@ -31,7 +31,7 @@ export default function SessionDetail({ session, onBack, onOpen }) {
     return wrapAnsi(renderMarkdown(turn.text), width, { hard: true, trim: false }).split('\n');
   }, [turns, index, width]);
 
-  const hints = '↑/k/wheel prev · ↓/j next · space/b page · g first · G last · o open in tab · 1-9 tab · |/- split · u unsplit · x close tab · z zoom · q/Esc back';
+  const hints = '↑/k/wheel prev · ↓/j next · space/b page · g first · G last · o open in tab · 1-9 tab · |/- split · u unsplit · x close tab · z zoom · ? keys · q/Esc back';
   const rows = process.stdout.rows || 24;
   // app chrome + title (1) + turn info (1) + paddingTop (1) + footer + 1 slack
   const pageHeight = Math.max(3, rows - CHROME_ROWS - 4 - footerHeight(hints));
