@@ -83,7 +83,7 @@ export default function SessionList({
 
   const hints = filterMode
     ? 'type to filter · ⏎/Esc done'
-    : '↑↓/click/wheel move · ⏎/double-click open · ←→/c collapse · C collapse all · n new · t terminal · v view · a archive · s star · / find · A archived · p plans · 1-9 tab · x close tab · z zoom · ⇥ cycle · q quit';
+    : '↑↓/wheel move · ⏎/click open · ←→/c collapse · C collapse all · n new · t terminal · v view · a archive · s star · / find · A archived · p plans · 1-9 tab · |/- split · u unsplit · x close tab · z zoom · ⇥ cycle · q quit';
 
   // Chrome above/below the list: app chrome (CHROME_ROWS) + header (1) +
   // search bar (3, bordered) + footer (wrapped). Everything else is the
@@ -110,19 +110,20 @@ export default function SessionList({
   const lastRef = useRef(0);
   lastRef.current = rows.length - 1;
   const clickRef = useRef({});
-  clickRef.current = { sel, rows, onOpen, toggleGroup };
+  clickRef.current = { rows, onOpen, toggleGroup };
   useEffect(() => {
-    // Click a header: select + toggle. Click a card: select; click the
-    // already-selected card: open it.
+    // Click a header: select + toggle. Click a card: select it and make it
+    // the active work pane (same as ⏎) — keyboard/wheel still move the
+    // selection without opening anything.
     const onClick = ({ row }) => {
       const idx = rowMapRef.current[row];
       if (idx == null) return;
-      const { sel: cur, rows: items, onOpen: open, toggleGroup: toggle } = clickRef.current;
+      const { rows: items, onOpen: open, toggleGroup: toggle } = clickRef.current;
       const item = items[idx];
       if (!item) return;
       setSelected(idx);
       if (item.kind === 'header') toggle(item);
-      else if (idx === cur) open(item.session);
+      else open(item.session);
     };
     const onWheel = ({ dir }) => {
       setSelected(s => Math.max(0, Math.min(s + dir, lastRef.current)));

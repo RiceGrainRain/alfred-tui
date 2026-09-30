@@ -65,6 +65,11 @@ export default function App() {
   const [confirm, setConfirm] = useState(null); // { message, onYes }
   // Work-pane tabs: [{ id: tmux pane id, kind: 'claude'|'file'|'plan'|'diff', label, sessionId? }]
   const [tabs, setTabs] = useState([]);
+  // Tab ids currently on screen in the work area. More than one = split view.
+  const [visible, setVisible] = useState([]);
+  // Armed split direction ('h' side by side, 'v' stacked): the next tab that
+  // gets opened or selected joins the work area instead of replacing a pane.
+  const [splitDir, setSplitDir] = useState(null);
   const [activeTabId, setActiveTabId] = useState(null);
   const [inputLocked, setInputLocked] = useState(false); // a screen is capturing text (filter mode)
   // Collapsed project groups in the sessions list. Lives here (not in
@@ -117,8 +122,9 @@ export default function App() {
     setRootTab(t => t === 'sessions' ? 'plans' : t === 'plans' ? 'git' : 'sessions');
   }, []);
 
-  // Drop tabs whose process exited (e.g. :q in nvim, claude quit). If the
-  // visible tab died, the next surviving tab is swapped in.
+  // Drop tabs whose process exited (e.g. :q in nvim, claude quit). Panes left
+  // beside them in a split just reflow; if the work area emptied, the next
+  // surviving tab is swapped in.
   useEffect(() => {
     if (status !== 'ready') return;
     const timer = setInterval(() => {
@@ -128,38 +134,89 @@ export default function App() {
       const remaining = current.filter(t => live.has(t.id));
       if (remaining.length === current.length) return;
       setTabs(remaining);
+      const ids = remaining.map(t => t.id);
+      let vis = tmux.visibleTabs(ids);
       const active = activeTabRef.current;
-      if (active && live.has(active)) return;
-      const idx = current.findIndex(t => t.id === active);
-      const next = remaining[Math.min(Math.max(idx, 0), remaining.length - 1)];
-      if (next) tmux.showTab(next.id, tmux.visibleTab(remaining.map(t => t.id)), { focus: false });
-      setActiveTabId(next?.id ?? null);
+      let next = live.has(active) ? active : vis[0] ?? null;
+      if (!next) {
+        const idx = current.findIndex(t => t.id === active);
+        next = remaining[Math.min(Math.max(idx, 0), remaining.length - 1)]?.id ?? null;
+        if (next) {
+          tmux.showTab(next, null, { focus: false });
+          vis = tmux.visibleTabs(ids);
+        }
+      }
+      setVisible(vis);
+      setActiveTabId(next);
     }, 2000);
     return () => clearInterval(timer);
   }, [status]);
 
-  const visibleTabId = () => tmux.visibleTab(tabsRef.current.map(t => t.id));
-
-  const openNewTab = ({ cmd, cwd, label, ...meta }) => {
-    const id = tmux.openTab(cmd, { cwd, label, visibleId: visibleTabId() });
-    if (!id) return;
-    setTabs(t => [...t, { id, label, ...meta }]);
-    setActiveTabId(id);
+  // tmux is the source of truth for what's on screen — the user can also move
+  // panes around with tmux's own keys — so re-read it before every operation.
+  const readVisible = (extraId) => {
+    const ids = tabsRef.current.map(t => t.id);
+    return tmux.visibleTabs(extraId ? [...ids, extraId] : ids);
   };
 
-  const selectTab = (id, opts) => {
+  // The visible pane a tab replaces, or splits off: the active one when it's
+  // on screen, else whatever is leftmost.
+  const anchor = (vis) => (vis.includes(activeTabRef.current) ? activeTabRef.current : vis[0] ?? null);
+
+  const openNewTab = ({ cmd, cwd, label, ...meta }) => {
+    const vis = readVisible();
+    const at = anchor(vis);
+    const dir = at ? splitDir : null; // nothing to split off an empty work area
+    const id = tmux.openTab(cmd, { cwd, label, visibleId: at, splitOf: dir ? at : null, dir });
     if (!id) return;
-    tmux.showTab(id, visibleTabId(), opts);
+    setTabs(t => [...t, { id, label, ...meta }]);
+    setVisible(readVisible(id));
     setActiveTabId(id);
+    setSplitDir(null);
+  };
+
+  const selectTab = (id, opts = {}) => {
+    if (!id) return;
+    const vis = readVisible();
+    if (vis.includes(id)) {
+      // Already on screen (in a split): just make it the active pane.
+      if (opts.focus !== false) tmux.focusPane(id);
+    } else {
+      const at = anchor(vis);
+      if (splitDir && at) tmux.splitTab(id, at, { dir: splitDir, ...opts });
+      else tmux.showTab(id, at, opts);
+    }
+    setVisible(readVisible(id));
+    setActiveTabId(id);
+    setSplitDir(null);
   };
 
   const closeActiveTab = () => {
-    const idx = tabs.findIndex(t => t.id === activeTabId);
+    const id = activeTabId;
+    const idx = tabs.findIndex(t => t.id === id);
     if (idx < 0) return;
-    const next = tabs[idx + 1] || tabs[idx - 1];
-    tmux.closeTab(activeTabId, { visibleId: visibleTabId(), nextId: next?.id });
-    setTabs(t => t.filter(x => x.id !== activeTabId));
-    setActiveTabId(next?.id ?? null);
+    const vis = readVisible();
+    const rest = vis.filter(v => v !== id);
+    // Only pull another tab in when this was the work area's last pane.
+    const backfill = vis.includes(id) && rest.length === 0 ? (tabs[idx + 1] || tabs[idx - 1]) : null;
+    tmux.closeTab(id, { visibleId: vis.includes(id) ? id : null, nextId: backfill?.id });
+    setTabs(t => t.filter(x => x.id !== id));
+    const nextVisible = backfill ? [backfill.id] : rest;
+    setVisible(nextVisible);
+    setActiveTabId(nextVisible[0] ?? null);
+  };
+
+  // u: take the active pane out of the split and park it back in the stash.
+  // The tab stays in the strip and its process keeps running.
+  const unsplitActiveTab = () => {
+    const vis = readVisible();
+    if (vis.length < 2) return;
+    const id = vis.includes(activeTabId) ? activeTabId : vis[vis.length - 1];
+    tmux.hideTab(id);
+    const rest = vis.filter(v => v !== id);
+    setVisible(rest);
+    setActiveTabId(rest[0] ?? null);
+    tmux.focusSidebar();
   };
 
   const onRootTab = (key) => {
@@ -297,10 +354,15 @@ export default function App() {
 
   // Global tab keys, available on every screen unless a screen is capturing
   // text: 1–9 switch work tab, x closes the active one, z zooms the sidebar.
+  // | / - arm a split so the next tab opens beside the active pane instead of
+  // replacing it (press again to cancel); u undoes one split.
   useInput((input) => {
     if (input >= '1' && input <= '9') { selectTab(tabs[+input - 1]?.id, { focus: false }); return; }
     if (input === 'x') { closeActiveTab(); return; }
     if (input === 'z') { tmux.toggleZoom(); return; }
+    if (input === '|') { setSplitDir(d => (d === 'h' ? null : 'h')); return; }
+    if (input === '-') { setSplitDir(d => (d === 'v' ? null : 'v')); return; }
+    if (input === 'u') { unsplitActiveTab(); return; }
   }, { isActive: status === 'ready' && !confirm && !inputLocked });
 
   const liveSessionIds = useMemo(
@@ -408,6 +470,8 @@ export default function App() {
         onRootTab={onRootTab}
         tabs={tabs}
         activeTabId={activeTabId}
+        visibleIds={visible}
+        splitDir={splitDir}
         onSelectTab={(id) => selectTab(id, { focus: false })}
         onCloseTab={closeActiveTab}
       />

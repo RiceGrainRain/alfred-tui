@@ -91,7 +91,7 @@ export default function GitTree({ projects, liveSessionIds, onOpenFile, onOpenDi
   const projRows = Math.min(numProjects, Math.max(3, Math.floor((rows - CHROME_ROWS) / 3)));
   const { start: projStart } = computeViewport(numProjects, sel, projRows);
   const visibleProjects = projects.slice(projStart, projStart + projRows);
-  const hints = '↑↓ move · ←→ projects/files · ⏎/double-click open · d diff · t terminal · C commit · e dir/git · r refresh · wheel scroll · space/b page · z zoom · 1-9 tab · x close tab · ⇥ next · q back';
+  const hints = '↑↓ move · ←→ projects/files · ⏎/double-click open · d diff · t terminal · C commit · e dir/git · r refresh · wheel scroll · space/b page · z zoom · 1-9 tab · |/- split · u unsplit · x close tab · ⇥ next · q back';
   const contentBudget = Math.max(1, rows - CHROME_ROWS - projRows - 3 - footerHeight(hints));
   const maxOffset = Math.max(0, contentItems.length - contentBudget);
   const off = Math.min(contentOffset, maxOffset);

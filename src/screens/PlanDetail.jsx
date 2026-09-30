@@ -56,8 +56,8 @@ export default function PlanDetail({ plan, trackedEntry, onOpenInTab, onBack }) 
   // Reserve the height of the longest footer variant so the page doesn't
   // jump when the "Copied!" message swaps in.
   const hints = trackedEntry
-    ? 'o open in tab · 1-9 tab · x close tab · z zoom · q/Esc back'
-    : '↑↓/wheel scroll · space/b page · g/G top/bottom · c copy · o open in tab · 1-9 tab · x close tab · z zoom · q/Esc back';
+    ? 'o open in tab · 1-9 tab · |/- split · u unsplit · x close tab · z zoom · q/Esc back'
+    : '↑↓/wheel scroll · space/b page · g/G top/bottom · c copy · o open in tab · 1-9 tab · |/- split · u unsplit · x close tab · z zoom · q/Esc back';
   const pageHeight = Math.max(3, rows - 2 - footerHeight(hints) - CHROME_ROWS); // app chrome + title (1) + footer + slack
 
   const maxOffset = Math.max(0, lines.length - pageHeight);

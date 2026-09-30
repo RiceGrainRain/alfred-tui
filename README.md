@@ -28,12 +28,18 @@ state plus a small session cache in SQLite (`~/.alfred/alfred.db`).
 ```
 
 - Run `alfred` and it opens a tmux session with the sidebar (left) and an empty work pane (right).
-- Select a session and press **Enter** (or double-click it) — `claude --resume <id>` starts in a new
-  **work tab**, in that session's project directory, and focus jumps to it.
+- **Click a session** (or select it and press **Enter**) — `claude --resume <id>` starts in a new
+  **work tab**, in that session's project directory, and it becomes the active pane. Clicking a
+  session that's already open just switches to its tab.
 - The work pane holds **tabs**: claude sessions, plans (`o` in plan detail) and files from the Git
   tab all open as tabs. Click a tab in the sidebar's second row (or press `1`–`9`) to switch — the
   other tabs keep running in a hidden tmux session (`alfred-stash-*`), so nothing is killed.
   `x` (or clicking `×`) closes the active tab; a tab whose program exits (e.g. `:q`) disappears.
+- **Split view:** press `|` (side by side) or `-` (stacked), then pick a tab — with `1`–`9`, a click
+  on the tab strip, or by opening a session/file — and it lands *beside* the active pane instead of
+  replacing it. Split as many times as you like. In the tab strip green is the focused pane, cyan is
+  another pane on screen, grey is parked in the stash. `u` sends the focused pane back to the stash
+  (leaving the split), `x` kills it outright.
 - Click the pane you want to type in, or use **Ctrl-b ←/→** (tmux).
 - Closing a claude tab only detaches the CLI — the transcript persists and is re-resumable.
 
@@ -49,8 +55,11 @@ state plus a small session cache in SQLite (`~/.alfred/alfred.db`).
   to edit it in `nvim`.
 - Git tab: per-project git status, or a collapsible directory tree (`e`); open files in `nvim` tabs,
   diffs in `less` tabs.
-- Mouse everywhere: click tabs, cards and tree rows; scroll with the wheel; drag the pane divider to
-  resize; `z` zooms the sidebar to full width (e.g. to see a deep tree) and back.
+- Split view: show several work tabs at once, side by side (`|`) or stacked (`-`), e.g. a claude
+  session next to the file it's editing; `u` puts one back in the stash.
+- Mouse everywhere: click a session to open it, click tabs and tree rows; scroll with the wheel;
+  drag the pane divider to resize; `z` zooms the sidebar to full width (e.g. to see a deep tree)
+  and back.
 - Every screen shows its full set of keybinds; the hints wrap onto extra lines when the sidebar is
   narrow instead of being cut off.
 
@@ -84,11 +93,12 @@ own tmux config if you want clicks there — and quitting removes only alfred's 
 ### Keys
 
 **Everywhere:** click `Sessions`/`Plans`/`Git` or `Tab` to cycle · `1`–`9` / click switch work tab ·
-`x` / click `×` close work tab · `z` zoom sidebar · mouse wheel scrolls
+`|` / `-` split the work area with the next tab you pick (press again to cancel) · `u` unsplit the
+focused pane · `x` / click `×` close work tab · `z` zoom sidebar · mouse wheel scrolls
 
 **Sidebar (sessions):** `↑`/`↓` (or `k`/`j`) move · `Enter` open (resume) · `n` new session ·
 `v` view transcript · `a` archive · `s` star · `/` filter · `A` show archived · `p` plans · `q` quit ·
-click a card to select it, click it again to open it · click a project header (or `⏎` on it, `c`,
+click a card to open it as the active pane · click a project header (or `⏎` on it, `c`,
 `←`/`→`) to collapse/expand the project · `C` collapse/expand all (remembered across restarts) ·
 `n`/`t` on a header act on that project
 

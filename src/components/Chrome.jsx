@@ -11,11 +11,16 @@ const ROOT_TABS = [
 
 // Two rows rendered above every screen (see CHROME_ROWS in layout.js):
 //   row 1: root tabs  — Sessions │ Plans │ Git
-//   row 2: work tabs  — one per pane in the work area, plus × to close the active one
-// Both are clickable; column ranges come from layoutTabStrip so rendering
-// and hit-testing can't drift apart.
-export default function Chrome({ rootTab, onRootTab, tabs, activeTabId, onSelectTab, onCloseTab }) {
+//   row 2: work tabs  — one per open tab, plus × to close the active one
+// A work tab is green when it's the focused pane, cyan when it's on screen
+// next to it in a split, and grey when it's parked in the stash.
+// Both rows are clickable; column ranges come from layoutTabStrip so
+// rendering and hit-testing can't drift apart.
+export default function Chrome({
+  rootTab, onRootTab, tabs, activeTabId, visibleIds = [], splitDir, onSelectTab, onCloseTab,
+}) {
   const cols = process.stdout.columns || 80;
+  const onScreen = new Set(visibleIds);
 
   const rootSegs = layoutTabStrip(ROOT_TABS.map(t => t.label), cols - 2, 0, 2);
   const activeIdx = Math.max(0, tabs.findIndex(t => t.id === activeTabId));
@@ -60,17 +65,27 @@ export default function Chrome({ rootTab, onRootTab, tabs, activeTabId, onSelect
       <Text wrap="truncate-end">
         {workSegs.length === 0 && <Text dimColor> no open tabs — ⏎ on a session opens one</Text>}
         {workSegs.map((seg, i) => {
-          const active = tabs[seg.index].id === activeTabId;
+          const id = tabs[seg.index].id;
+          const active = id === activeTabId;
+          const shown = onScreen.has(id);
           return (
-            <Text key={tabs[seg.index].id}>
+            <Text key={id}>
               {i > 0 ? ' ' : ''}
-              <Text color={active ? 'black' : undefined} backgroundColor={active ? 'green' : 'gray'}>
+              <Text
+                color={active || shown ? 'black' : undefined}
+                backgroundColor={active ? 'green' : shown ? 'cyan' : 'gray'}
+              >
                 {seg.text}
               </Text>
             </Text>
           );
         })}
         {workSegs.length > 0 && <Text color="red"> ×</Text>}
+        {splitDir && (
+          <Text color="yellow" bold>
+            {'  '}split {splitDir === 'h' ? '│' : '─'} pick a tab
+          </Text>
+        )}
       </Text>
     </Box>
   );

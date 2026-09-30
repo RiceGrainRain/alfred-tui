@@ -73,10 +73,11 @@ function bootstrap() {
 }
 
 // ── Work-pane tabs ────────────────────────────────────────────────────────
-// Exactly one tab pane is visible to the right of the sidebar. The others are
-// parked in a hidden, detached "stash" session so their processes (claude,
-// nvim, …) keep running. Tabs are swapped in with swap-pane, which keeps pane
-// ids stable, so the sidebar can track tabs purely by pane id.
+// One or more tab panes are visible to the right of the sidebar (a split view
+// shows several at once). The rest are parked in a hidden, detached "stash"
+// session so their processes (claude, nvim, …) keep running. Tabs move between
+// the two with swap-pane / join-pane / break-pane, all of which keep pane ids
+// stable, so the sidebar can track tabs purely by pane id.
 
 /** Name of this sidebar's hidden stash session (one per sidebar pane). */
 function stashName() {
@@ -99,18 +100,29 @@ function listLivePanes() {
   return new Set(tmuxCapture(['list-panes', '-a', '-F', '#{pane_id}']).split('\n').filter(Boolean));
 }
 
-/** Which of `tabIds` is currently shown next to the sidebar (or null). */
-function visibleTab(tabIds) {
+/**
+ * Which of `tabIds` are currently in the work area, in tmux's layout order
+ * (left-to-right / top-to-bottom). More than one means a split view.
+ */
+function visibleTabs(tabIds) {
   const self = selfPaneId();
-  if (!self) return null;
-  const here = tmuxCapture(['list-panes', '-t', self, '-F', '#{pane_id}']).split('\n');
-  return tabIds.find(id => here.includes(id)) || null;
+  if (!self) return [];
+  const wanted = new Set(tabIds);
+  return tmuxCapture(['list-panes', '-t', self, '-F', '#{pane_id}'])
+    .split('\n')
+    .filter(id => wanted.has(id));
+}
+
+/** Which of `tabIds` is shown next to the sidebar (the first one, or null). */
+function visibleTab(tabIds) {
+  return visibleTabs(tabIds)[0] || null;
 }
 
 /**
- * Bring tab pane `id` into view. If another tab is visible, the two swap
- * places (the old one goes to the stash, still running); otherwise the pane
- * is joined to the right of the sidebar. Focuses the tab unless `focus` is false.
+ * Bring tab pane `id` into view in place of `visibleId`: the two swap places,
+ * so the old tab goes to the stash still running. With nothing visible the
+ * pane is joined to the right of the sidebar instead. Focuses the tab unless
+ * `focus` is false.
  */
 function showTab(id, visibleId, { focus = true } = {}) {
   if (!id) return false;
@@ -126,10 +138,35 @@ function showTab(id, visibleId, { focus = true } = {}) {
 }
 
 /**
- * Start `cmd` in a new tab pane (created in the stash, then shown). `label`
- * is stored on the pane and drawn in its top border. Returns the pane id.
+ * Add tab pane `id` to the work area as a split of the already-visible pane
+ * `targetId`, which gives up half its space. `dir` is 'h' for side by side,
+ * 'v' for stacked.
  */
-function openTab(cmd, { cwd, label, visibleId } = {}) {
+function splitTab(id, targetId, { dir = 'h', focus = true } = {}) {
+  if (!id || !targetId || id === targetId) return false;
+  const ok = tmuxQuiet(['join-pane', dir === 'v' ? '-v' : '-h', '-d', '-s', id, '-t', targetId]);
+  if (ok && focus) tmuxQuiet(['select-pane', '-t', id]);
+  return ok;
+}
+
+/**
+ * Pull visible tab pane `id` out of the work area and park it back in the
+ * stash. Its process keeps running and the remaining panes reflow to fill
+ * the gap — the inverse of splitTab.
+ */
+function hideTab(id) {
+  if (!id) return false;
+  const stash = ensureStash();
+  return tmuxQuiet(['break-pane', '-d', '-s', id, '-t', `${stash}:`]);
+}
+
+/**
+ * Start `cmd` in a new tab pane (created in the stash, then shown). `label`
+ * is stored on the pane and drawn in its top border. Passing `splitOf` adds
+ * it alongside that visible pane instead of replacing `visibleId`. Returns
+ * the pane id.
+ */
+function openTab(cmd, { cwd, label, visibleId, splitOf, dir } = {}) {
   const stash = ensureStash();
   const id = tmuxCapture([
     'new-window', '-d', '-t', `${stash}:`, '-P', '-F', '#{pane_id}',
@@ -137,20 +174,32 @@ function openTab(cmd, { cwd, label, visibleId } = {}) {
   ]);
   if (!id) return '';
   if (label) tmuxQuiet(['set-option', '-p', '-t', id, '@alfred_label', label]);
-  showTab(id, visibleId);
+  if (splitOf) splitTab(id, splitOf, { dir });
+  else showTab(id, visibleId);
   return id;
 }
 
+/** Give keyboard focus to pane `id`. */
+function focusPane(id) {
+  if (id) tmuxQuiet(['select-pane', '-t', id]);
+}
+
+/** Give keyboard focus back to the sidebar pane. */
+function focusSidebar() {
+  const self = selfPaneId();
+  if (self) tmuxQuiet(['select-pane', '-t', self]);
+}
+
 /**
- * Kill tab pane `id`. If it's the visible one and `nextId` is given, that tab
- * is swapped in first so the work area doesn't collapse. Focus returns to the sidebar.
+ * Kill tab pane `id`. If it's the last visible one and `nextId` is given,
+ * that tab is swapped in first so the work area doesn't collapse; panes still
+ * beside it in a split just reflow. Focus returns to the sidebar.
  */
 function closeTab(id, { visibleId, nextId } = {}) {
   if (!id) return;
   if (id === visibleId && nextId) showTab(nextId, id, { focus: false });
   tmuxQuiet(['kill-pane', '-t', id]);
-  const self = selfPaneId();
-  if (self) tmuxQuiet(['select-pane', '-t', self]);
+  focusSidebar();
 }
 
 function killTabs(ids) {
@@ -193,6 +242,7 @@ function killOwnedSession() {
 
 export {
   inTmux, ownsSession, selfPaneId, sessionExists, bootstrap, shellQuote,
-  listLivePanes, visibleTab, showTab, openTab, closeTab, killTabs,
+  listLivePanes, visibleTab, visibleTabs, showTab, splitTab, hideTab,
+  openTab, closeTab, killTabs, focusPane, focusSidebar,
   setupSessionUi, toggleZoom, killOwnedSession,
 };

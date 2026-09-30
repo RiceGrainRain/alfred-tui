@@ -53,7 +53,7 @@ export default function PlanList({ plans, tracked, onOpenPlan, onOpenTracked, on
   const sel = Math.max(0, Math.min(selected, flat.length - 1));
 
   const rows = process.stdout.rows || 24;
-  const hints = '↑↓/click/wheel move · ⏎/double-click view · o open in tab · s sessions · 1-9 tab · x close tab · z zoom · ⇥ cycle · q quit';
+  const hints = '↑↓/click/wheel move · ⏎/double-click view · o open in tab · s sessions · 1-9 tab · |/- split · u unsplit · x close tab · z zoom · ⇥ cycle · q quit';
   // app chrome + header (1) + footer (wrapped) + 1 row slack
   const budget = Math.max(4, rows - 2 - footerHeight(hints) - CHROME_ROWS);
   const perPageEstimate = Math.max(2, Math.floor(budget / 3));
