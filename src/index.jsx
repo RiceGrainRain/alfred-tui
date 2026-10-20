@@ -1,4 +1,17 @@
+import fs from 'fs';
+import path from 'path';
 import { inTmux, bootstrap } from './tmux.js';
+
+// Fail loudly up front: without these, bootstrap's best-effort tmux calls
+// would just exit silently.
+const onPath = cmd => (process.env.PATH || '').split(path.delimiter).some(dir => {
+  try { fs.accessSync(path.join(dir, cmd), fs.constants.X_OK); return true; } catch { return false; }
+});
+const missing = ['tmux', 'claude'].filter(cmd => !onPath(cmd));
+if (missing.length) {
+  console.error(`alfred: ${missing.join(' and ')} not found on PATH — see https://github.com/RiceGrainRain/alfred-tui#requirements`);
+  process.exit(1);
+}
 
 // Outside tmux: create/attach the alfred session and hand the terminal to
 // tmux. Only when we're inside a pane do we load the DB + Ink and render the

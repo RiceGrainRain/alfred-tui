@@ -4,6 +4,8 @@
   "private": true,
   "type": "module",
   "description": "A minimal terminal companion for browsing and archiving Claude Code sessions and plans",
+  "license": "MIT",
+  "repository": "github:RiceGrainRain/alfred-tui",
   "bin": {
     "alfred": "bin/alfred.js"
   },
@@ -12,6 +14,7 @@
   },
   "scripts": {
     "build": "esbuild src/index.jsx --bundle --outfile=dist/index.js --format=esm --platform=node --packages=external --jsx=automatic",
+    "prepare": "npm run build",
     "start": "npm run build && node bin/alfred.js",
     "test": "node --test"
   },
@@ -29,5 +32,10 @@
   "allowScripts": {
     "better-sqlite3@12.11.1": true,
     "esbuild@0.27.7": true
-  }
+  },
+  "files": [
+    "bin",
+    "dist",
+    "THIRD_PARTY_NOTICES.md"
+  ]
 }

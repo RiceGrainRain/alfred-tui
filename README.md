@@ -81,9 +81,14 @@ state plus a small session cache in SQLite (`~/.alfred/alfred.db`).
 ## Install
 
 ```bash
-npm install
-npm run build
-npm link   # optional: makes `alfred` available globally
+npm install -g github:RiceGrainRain/alfred-tui
+```
+
+Or from a clone:
+
+```bash
+npm install   # also builds dist/
+npm link      # optional: makes `alfred` available globally
 ```
 
 ## Usage
@@ -148,4 +153,4 @@ The demo GIF and screenshots in `docs/` are generated from fake fixture data —
 
 ## License
 
-Portions of `src/` are derived from MIT-licensed code — see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+MIT — see [LICENSE](LICENSE). Portions of `src/` are derived from MIT-licensed code — see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

@@ -3,8 +3,7 @@
 //
 // The migration array and schema-reconciliation block below are kept
 // UNMODIFIED (including steps that only affect tables alfred doesn't create,
-// guarded by try/catch) so databases carried over by the legacy import below
-// keep a consistent `db_version`.
+// guarded by try/catch) so existing databases keep a consistent `db_version`.
 import Database from 'better-sqlite3';
 import path from 'path';
 import os from 'os';
@@ -16,21 +15,6 @@ const DATA_DIR = process.env.ALFRED_DATA_DIR
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
 const DB_PATH = path.join(DATA_DIR, 'alfred.db');
-
-// One-time import: earlier versions kept their data in a different location.
-// On the first run with the default data dir, copy that database over so
-// existing stars/archives carry forward. VACUUM INTO folds any pending WAL
-// into a single consistent file; the legacy file itself is left untouched.
-const LEGACY_DB_PATH = path.join(os.homedir(), '.switchboard', 'switchboard.db');
-if (!process.env.ALFRED_DATA_DIR && !fs.existsSync(DB_PATH) && fs.existsSync(LEGACY_DB_PATH)) {
-  try {
-    const legacy = new Database(LEGACY_DB_PATH, { readonly: true, fileMustExist: true });
-    legacy.prepare('VACUUM INTO ?').run(DB_PATH);
-    legacy.close();
-  } catch {
-    try { fs.rmSync(DB_PATH, { force: true }); } catch {}
-  }
-}
 
 const db = new Database(DB_PATH);
 
