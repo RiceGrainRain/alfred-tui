@@ -6,6 +6,7 @@
 // helpers swallow failures and return sensible fallbacks rather than throw.
 import { execFileSync } from 'child_process';
 import path from 'path';
+import { theme } from './theme.js';
 
 const SESSION = 'alfred';
 
@@ -66,7 +67,13 @@ function bootstrap() {
     const node = JSON.stringify(process.execPath);
     const script = JSON.stringify(path.resolve(process.argv[1]));
     const cmd = `ALFRED_OWNS_TMUX=1 exec ${node} ${script}`;
-    tmux(['new-session', '-s', SESSION, cmd]);
+    // A pane gets the tmux server's environment, not ours, whenever a server
+    // is already running — so hand our ALFRED_* settings (theme, editor, data
+    // dir) to the session explicitly.
+    const env = Object.entries(process.env)
+      .filter(([k]) => k.startsWith('ALFRED_'))
+      .flatMap(([k, v]) => ['-e', `${k}=${v}`]);
+    tmux(['new-session', ...env, '-s', SESSION, cmd]);
   } catch {
     // Normal on detach / session kill.
   }
@@ -227,6 +234,9 @@ function setupSessionUi() {
   const target = self ? ['-t', self] : [];
   tmuxQuiet(['set-option', '-w', ...target, 'pane-border-status', 'top']);
   tmuxQuiet(['set-option', '-w', ...target, 'pane-border-format', ' #{?@alfred_label,#{@alfred_label},alfred} ']);
+  // The theme's status bar and borders; the default theme leaves tmux's own.
+  for (const [opt, val] of Object.entries(theme.tmux?.session || {})) tmuxQuiet(['set-option', '-t', SESSION, opt, val]);
+  for (const [opt, val] of Object.entries(theme.tmux?.window || {})) tmuxQuiet(['set-option', '-w', ...target, opt, val]);
 }
 
 /** Toggle tmux zoom on the sidebar pane (full-window view and back). */

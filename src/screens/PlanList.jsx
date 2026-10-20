@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
+import { C } from '../theme.js';
 import { mouseEmitter } from '../mouse.js';
 import Footer from '../components/Footer.jsx';
 import { CHROME_ROWS, computeViewport, footerHeight } from '../layout.js';
@@ -44,9 +45,9 @@ function PlanCard({ item, selected }) {
   const inner = (process.stdout.columns || 80) - 4 - meta.length - 1;
   const title = truncate(rawTitle, Math.max(4, inner));
   return (
-    <Box borderStyle="round" borderColor={selected ? 'cyan' : 'gray'} paddingX={1} flexDirection="column">
+    <Box borderStyle="round" borderColor={selected ? C.cyan : C.gray} paddingX={1} flexDirection="column">
       <Box justifyContent="space-between">
-        <Text bold={selected} color={selected ? 'white' : undefined}>{title}</Text>
+        <Text bold={selected} color={selected ? C.white : undefined}>{title}</Text>
         <Text dimColor> {meta}</Text>
       </Box>
     </Box>
@@ -125,7 +126,7 @@ export default function PlanList({ plans, tracked, onOpenPlan, onOpenTracked, on
       currentRow++; // section header row
       items.push(
         <Box key={`s:${item.section}:${i}`} marginTop={items.length ? 1 : 0}>
-          <Text color="blue">▾ </Text><Text bold color="blueBright">{item.section}</Text>
+          <Text color={C.blue}>▾ </Text><Text bold color={C.blueBright}>{item.section}</Text>
         </Box>
       );
       used += headerCost;

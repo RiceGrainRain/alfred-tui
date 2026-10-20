@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
+import { C } from '../theme.js';
 import path from 'path';
 import Footer from '../components/Footer.jsx';
 import { getGitStatus } from '../git.js';
@@ -12,7 +13,7 @@ function shortPath(p) {
   return home && p.startsWith(home) ? '~' + p.slice(home.length) : p;
 }
 
-const STATUS_COLOR = { M: 'yellow', A: 'green', D: 'red', R: 'cyan', C: 'cyan', U: 'magenta' };
+const STATUS_COLOR = { M: C.yellow, A: C.green, D: C.red, R: C.cyan, C: C.cyan, U: C.magenta };
 
 // Build a flat list of content items for git-status view.
 function buildGitItems(status) {
@@ -21,7 +22,7 @@ function buildGitItems(status) {
   const addSection = (label, files, mkBadge) => {
     if (!files || files.length === 0) return;
     items.push({ kind: 'section', label: `${label} (${files.length})` });
-    for (const f of files) items.push({ kind: 'file', badge: mkBadge(f), name: typeof f === 'string' ? f : f.file, badgeColor: STATUS_COLOR[f.status] || 'gray', untracked: typeof f === 'string' });
+    for (const f of files) items.push({ kind: 'file', badge: mkBadge(f), name: typeof f === 'string' ? f : f.file, badgeColor: STATUS_COLOR[f.status] || C.gray, untracked: typeof f === 'string' });
   };
   addSection('staged',   status.staged,   f => f.status);
   addSection('unstaged', status.unstaged, f => f.status);
@@ -207,7 +208,7 @@ export default function GitTree({ projects, liveSessionIds, onOpenFile, onOpenDi
   function renderItem(item, idx) {
     const absoluteIdx = off + idx;
     const isCursor = absoluteIdx === cursor;
-    const bg = isCursor ? (focus === 'content' ? 'blue' : 'gray') : undefined;
+    const bg = isCursor ? (focus === 'content' ? C.blue : C.gray) : undefined;
     if (item.kind === 'section') {
       return (
         <Box key={idx} paddingLeft={2}>
@@ -220,7 +221,7 @@ export default function GitTree({ projects, liveSessionIds, onOpenFile, onOpenDi
         <Box key={idx} paddingLeft={4} backgroundColor={bg}>
           <Text wrap="truncate-end">
             <Text color={item.badgeColor}>{item.badge} </Text>
-            <Text color={isCursor ? 'white' : undefined}>{item.name}</Text>
+            <Text color={isCursor ? C.white : undefined}>{item.name}</Text>
           </Text>
         </Box>
       );
@@ -232,8 +233,8 @@ export default function GitTree({ projects, liveSessionIds, onOpenFile, onOpenDi
         <Box key={idx} backgroundColor={bg}>
           <Text wrap="truncate-end">
             <Text dimColor>{node.prefix}{node.connector}</Text>
-            <Text color={isDir ? 'blue' : undefined}>{node.icon}</Text>
-            <Text color={isCursor ? 'white' : isDir ? 'blueBright' : undefined}>{node.name}</Text>
+            <Text color={isDir ? C.blue : undefined}>{node.icon}</Text>
+            <Text color={isCursor ? C.white : isDir ? C.blueBright : undefined}>{node.name}</Text>
             {isDir && <Text dimColor>{node.expanded ? ' ▾' : ' ▸'}</Text>}
           </Text>
         </Box>
@@ -264,13 +265,13 @@ export default function GitTree({ projects, liveSessionIds, onOpenFile, onOpenDi
             (pStatus.staged.length + pStatus.unstaged.length + pStatus.untracked.length > 0);
           return (
             <Text key={p.projectPath} wrap="truncate-end">
-              <Text color={selected ? 'cyan' : 'blue'}>{selected ? '▶ ' : '  '}</Text>
-              <Text bold={selected} color={selected ? (focus === 'projects' ? 'white' : 'gray') : undefined}>
+              <Text color={selected ? C.cyan : C.blue}>{selected ? '▶ ' : '  '}</Text>
+              <Text bold={selected} color={selected ? (focus === 'projects' ? C.white : C.gray) : undefined}>
                 {shortPath(p.projectPath)}
               </Text>
-              {isLive && <Text color="green"> ●</Text>}
-              {pStatus && hasChanges && <Text color="yellow"> *</Text>}
-              {pStatus && !hasChanges && <Text color="green"> ✓</Text>}
+              {isLive && <Text color={C.green}> ●</Text>}
+              {pStatus && hasChanges && <Text color={C.yellow}> *</Text>}
+              {pStatus && !hasChanges && <Text color={C.green}> ✓</Text>}
             </Text>
           );
         })}
@@ -282,8 +283,8 @@ export default function GitTree({ projects, liveSessionIds, onOpenFile, onOpenDi
         {currentProject && (dirMode || status) && (
           <Box justifyContent="space-between">
             <Text wrap="truncate-end">
-              <Text color="blue">▾ </Text>
-              <Text bold color="blueBright">{shortPath(currentProject.projectPath)}</Text>
+              <Text color={C.blue}>▾ </Text>
+              <Text bold color={C.blueBright}>{shortPath(currentProject.projectPath)}</Text>
               {!dirMode && <Text dimColor>  [{status.branch}]</Text>}
             </Text>
             <Text dimColor>{scrollHint}</Text>

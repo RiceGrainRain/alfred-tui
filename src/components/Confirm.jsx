@@ -1,5 +1,6 @@
 import React from 'react';
 import { Box, Text, useInput } from 'ink';
+import { C } from '../theme.js';
 
 export default function Confirm({ message, onYes, onNo }) {
   useInput((input, key) => {
@@ -8,7 +9,7 @@ export default function Confirm({ message, onYes, onNo }) {
   });
 
   return (
-    <Box flexDirection="column" padding={1} borderStyle="round" borderColor="yellow">
+    <Box flexDirection="column" padding={1} borderStyle="round" borderColor={C.yellow}>
       <Text>{message}</Text>
       <Text dimColor>y / n</Text>
     </Box>

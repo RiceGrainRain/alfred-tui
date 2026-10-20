@@ -74,6 +74,8 @@ state plus a small session cache in SQLite (`~/.alfred/alfred.db`).
 - **Node ≥ 22** (Ink 7 and better-sqlite3 require it)
 - The `claude` CLI on your PATH (for opening sessions live)
 - `nvim` for opening files/plans (override with `ALFRED_EDITOR`, e.g. `ALFRED_EDITOR=hx`)
+- Colors default to Gruvbox dark, including alfred's tmux status bar and pane borders; set
+  `ALFRED_THEME=terminal` to use your terminal's own palette instead
 - A terminal with mouse reporting (Ghostty, iTerm2, kitty, WezTerm, …)
 
 ## Install

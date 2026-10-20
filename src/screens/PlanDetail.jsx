@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
+import { C } from '../theme.js';
 import Footer from '../components/Footer.jsx';
 import { readPlanModePlan } from '../plans.js';
 import { renderMarkdown } from '../markdown.js';
@@ -16,10 +17,10 @@ function shortPath(p) {
 function TrackedView({ entry }) {
   return (
     <Box flexDirection="column">
-      <Text bold color="cyan">{shortPath(entry.projectPath)}</Text>
+      <Text bold color={C.cyan}>{shortPath(entry.projectPath)}</Text>
       {entry.plan && entry.plan.phases.map((phase, i) => (
         <Box key={i} flexDirection="column" marginTop={1}>
-          <Text color={phase.done ? 'green' : undefined}>
+          <Text color={phase.done ? C.green : undefined}>
             {phase.done ? '✓' : '○'} {phase.title}
           </Text>
           {phase.items.map((item, j) => (
@@ -29,7 +30,7 @@ function TrackedView({ entry }) {
       ))}
       {entry.todos.length > 0 && (
         <Box flexDirection="column" marginTop={1}>
-          <Text bold color="yellow">Todos</Text>
+          <Text bold color={C.yellow}>Todos</Text>
           {entry.todos.map((item, i) => (
             <Text key={i}>{item.done ? '✓' : '○'} {item.text}</Text>
           ))}
@@ -108,7 +109,7 @@ export default function PlanDetail({ plan, trackedEntry, onOpenInTab, onBack }) 
   return (
     <Box flexDirection="column" flexGrow={1}>
       <Box paddingX={1} justifyContent="space-between">
-        <Text bold color="cyan" wrap="truncate-end">{plan ? plan.title : ''}</Text>
+        <Text bold color={C.cyan} wrap="truncate-end">{plan ? plan.title : ''}</Text>
         <Text dimColor>{more}</Text>
       </Box>
       <Box flexDirection="column" paddingX={1} flexGrow={1}>

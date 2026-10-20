@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { Box, Text, useApp, useInput, useStdin, useStdout } from 'ink';
+import { C } from './theme.js';
 import SessionList from './screens/SessionList.jsx';
 import SessionDetail from './screens/SessionDetail.jsx';
 import PlanList from './screens/PlanList.jsx';
@@ -427,8 +428,8 @@ export default function App() {
   if (status === 'error') {
     return (
       <Box flexDirection="column" padding={1}>
-        <Text color="red" bold>alfred hit a startup error:</Text>
-        <Text color="red">{error}</Text>
+        <Text color={C.red} bold>alfred hit a startup error:</Text>
+        <Text color={C.red}>{error}</Text>
         <Box marginTop={1}>
           <Text dimColor>Check that ~/.claude/projects and ~/.alfred are readable. Press q/Esc to exit.</Text>
         </Box>

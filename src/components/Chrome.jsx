@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Box, Text } from 'ink';
+import { C } from '../theme.js';
 import { mouseEmitter } from '../mouse.js';
 import { layoutTabStrip, hitSegment } from '../layout.js';
 
@@ -55,7 +56,7 @@ export default function Chrome({
           return (
             <Text key={seg.index}>
               {i > 0 ? ' ' : ''}
-              <Text bold={active} color={active ? 'black' : 'gray'} backgroundColor={active ? 'cyan' : undefined}>
+              <Text bold={active} color={active ? C.black : C.gray} backgroundColor={active ? C.cyan : undefined}>
                 {seg.text}
               </Text>
             </Text>
@@ -72,17 +73,17 @@ export default function Chrome({
             <Text key={id}>
               {i > 0 ? ' ' : ''}
               <Text
-                color={active || shown ? 'black' : undefined}
-                backgroundColor={active ? 'green' : shown ? 'cyan' : 'gray'}
+                color={active || shown ? C.black : undefined}
+                backgroundColor={active ? C.green : shown ? C.cyan : C.gray}
               >
                 {seg.text}
               </Text>
             </Text>
           );
         })}
-        {workSegs.length > 0 && <Text color="red"> ×</Text>}
+        {workSegs.length > 0 && <Text color={C.red}> ×</Text>}
         {splitDir && (
-          <Text color="yellow" bold>
+          <Text color={C.yellow} bold>
             {'  '}split {splitDir === 'h' ? '│' : '─'} pick a tab
           </Text>
         )}

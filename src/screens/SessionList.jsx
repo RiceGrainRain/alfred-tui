@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
+import { C } from '../theme.js';
 import { mouseEmitter, isMouseSeq } from '../mouse.js';
 import Footer from '../components/Footer.jsx';
 import SearchBar from '../components/SearchBar.jsx';
@@ -190,12 +191,12 @@ export default function SessionList({
     return (
       <Box key={key} marginTop={spaced ? 1 : 0}>
         <Text wrap="truncate-end">
-          <Text color={selectedHeader ? 'cyan' : 'blue'}>{row.collapsed ? '▸ ' : '▾ '}</Text>
-          <Text bold color={selectedHeader ? 'black' : 'blueBright'} backgroundColor={selectedHeader ? 'cyan' : undefined}>
+          <Text color={selectedHeader ? C.cyan : C.blue}>{row.collapsed ? '▸ ' : '▾ '}</Text>
+          <Text bold color={selectedHeader ? C.black : C.blueBright} backgroundColor={selectedHeader ? C.cyan : undefined}>
             {row.label}
           </Text>
           <Text dimColor>  {row.sessions.length}</Text>
-          {row.collapsed && live && <Text color="green"> ●</Text>}
+          {row.collapsed && live && <Text color={C.green}> ●</Text>}
         </Text>
       </Box>
     );

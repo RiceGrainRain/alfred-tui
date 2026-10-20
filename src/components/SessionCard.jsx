@@ -1,5 +1,6 @@
 import React from 'react';
 import { Box, Text } from 'ink';
+import { C } from '../theme.js';
 import { relativeTime } from '../time.js';
 
 function sessionLabel(session) {
@@ -24,22 +25,22 @@ export default function SessionCard({ session, selected, live }) {
   return (
     <Box
       borderStyle="round"
-      borderColor={selected ? 'cyan' : 'gray'}
+      borderColor={selected ? C.cyan : C.gray}
       paddingX={1}
       flexDirection="column"
     >
       <Box justifyContent="space-between">
         <Text>
-          <Text color={live ? 'green' : 'gray'}>{live ? '● ' : '  '}</Text>
-          <Text bold={selected} color={selected ? 'white' : undefined}>{title}</Text>
+          <Text color={live ? C.green : C.gray}>{live ? '● ' : '  '}</Text>
+          <Text bold={selected} color={selected ? C.white : undefined}>{title}</Text>
         </Text>
-        <Text color={session.starred ? 'yellow' : 'gray'}>{star}</Text>
+        <Text color={session.starred ? C.yellow : C.gray}>{star}</Text>
       </Box>
       <Box>
         <Text>{'  '}</Text>
         <Text dimColor>{meta}</Text>
-        {session.archived ? <Text color="yellow" dimColor> · archived</Text> : null}
-        {live ? <Text color="green" bold> · live</Text> : null}
+        {session.archived ? <Text color={C.yellow} dimColor> · archived</Text> : null}
+        {live ? <Text color={C.green} bold> · live</Text> : null}
       </Box>
     </Box>
   );

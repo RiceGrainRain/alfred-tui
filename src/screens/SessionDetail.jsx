@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
+import { C } from '../theme.js';
 import Footer from '../components/Footer.jsx';
 import { transcriptPath } from '../harness-claude.js';
 import { readTranscript } from '../transcript.js';
@@ -79,7 +80,7 @@ export default function SessionDetail({ session, onBack, onOpen }) {
   if (error) {
     return (
       <Box flexDirection="column" padding={1}>
-        <Text color="red">Could not read transcript: {error}</Text>
+        <Text color={C.red}>Could not read transcript: {error}</Text>
         <Footer hints="q/Esc back" />
       </Box>
     );
@@ -90,7 +91,7 @@ export default function SessionDetail({ session, onBack, onOpen }) {
   return (
     <Box flexDirection="column" flexGrow={1}>
       <Box paddingX={1}>
-        <Text bold color="cyan">{sessionLabel(session)}</Text>
+        <Text bold color={C.cyan}>{sessionLabel(session)}</Text>
       </Box>
       <Box paddingX={1}>
         <Text dimColor>
