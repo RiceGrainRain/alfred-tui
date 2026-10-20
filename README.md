@@ -13,7 +13,10 @@ state plus a small session cache in SQLite (`~/.alfred/alfred.db`).
 | --- | --- | --- | --- |
 | ![sessions](docs/sessions.png) | ![transcript](docs/transcript.png) | ![plans](docs/plans.png) | ![git](docs/git.png) |
 
-The powerline status line under the claude prompt is from [oh-my-posh](https://ohmyposh.dev/docs/claude).
+![alfred with a live claude session](docs/live.png)
+
+The powerline status line under the claude prompt is from [oh-my-posh](https://ohmyposh.dev/docs/claude),
+and the BURN chart above it is the [burn meter](https://www.claudemod.com/mods/burn-meter#burn-meter) mod.
 
 ## How it works
 
