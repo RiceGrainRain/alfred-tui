@@ -81,14 +81,10 @@ state plus a small session cache in SQLite (`~/.alfred/alfred.db`).
 ## Install
 
 ```bash
-npm install -g github:RiceGrainRain/alfred-tui
-```
-
-Or from a clone:
-
-```bash
+git clone https://github.com/RiceGrainRain/alfred-tui
+cd alfred-tui
 npm install   # also builds dist/
-npm link      # optional: makes `alfred` available globally
+npm link      # makes `alfred` available globally
 ```
 
 ## Usage
