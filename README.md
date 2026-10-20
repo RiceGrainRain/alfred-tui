@@ -137,6 +137,23 @@ click a card to open it as the active pane · click a project header (or `⏎` o
 Quitting with `q` from the sidebar tears down the whole `alfred` tmux session — including every
 work tab — and returns you to your shell.
 
+### Claude Code status line
+
+The project · branch · model bar under the claude prompt in the screenshots is Claude Code's own
+`statusLine`, drawn by [oh-my-posh](https://ohmyposh.dev/docs/claude) — not part of alfred. To get the same, point
+`statusLine` in `~/.claude/settings.json` at a small wrapper script. The `perl` step removes
+oh-my-posh's OSC 8 hyperlinks, which tmux can garble:
+
+```bash
+#!/bin/bash
+oh-my-posh claude --config ~/.config/oh-my-posh/claude-statusline.omp.json "$@" \
+  | perl -pe 's/\e\]8;;[^\e]*\e\\//g'
+```
+
+```json
+"statusLine": { "type": "command", "command": "/path/to/that/script", "padding": 0 }
+```
+
 ## Development
 
 ```bash
