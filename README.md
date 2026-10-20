@@ -81,6 +81,15 @@ state plus a small session cache in SQLite (`~/.alfred/alfred.db`).
 ## Install
 
 ```bash
+npm install -g alfred-tui --allow-scripts=better-sqlite3
+```
+
+`--allow-scripts` lets better-sqlite3 install its native SQLite binding, which npm 12 blocks by
+default.
+
+Or from a clone:
+
+```bash
 git clone https://github.com/RiceGrainRain/alfred-tui
 cd alfred-tui
 npm install   # also builds dist/

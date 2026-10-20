@@ -1,7 +1,6 @@
 {
   "name": "alfred-tui",
   "version": "0.4.0",
-  "private": true,
   "type": "module",
   "description": "A minimal terminal companion for browsing and archiving Claude Code sessions and plans",
   "license": "MIT",
@@ -37,5 +36,12 @@
     "bin",
     "dist",
     "THIRD_PARTY_NOTICES.md"
+  ],
+  "keywords": [
+    "claude-code",
+    "claude",
+    "tui",
+    "tmux",
+    "ink"
   ]
 }
