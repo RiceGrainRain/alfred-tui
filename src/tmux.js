@@ -138,7 +138,7 @@ function showTab(id, visibleId, { focus = true } = {}) {
     ok = tmuxQuiet(['swap-pane', '-d', '-s', id, '-t', visibleId]);
   } else if (!visibleId) {
     const self = selfPaneId();
-    ok = tmuxQuiet(['join-pane', '-h', '-l', '65%', '-d', '-s', id, ...(self ? ['-t', self] : [])]);
+    ok = tmuxQuiet(['join-pane', '-h', '-l', '75%', '-d', '-s', id, ...(self ? ['-t', self] : [])]);
   }
   if (ok && focus) tmuxQuiet(['select-pane', '-t', id]);
   return ok;

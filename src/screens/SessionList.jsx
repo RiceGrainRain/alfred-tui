@@ -18,26 +18,33 @@ function groupLabel(projectPath) {
   return parts.slice(-2).join('/') || projectPath;
 }
 
+// Collapse key / pseudo projectPath of the starred group pinned at the top.
+const STARRED = '\u0000starred';
+
 // One entry per selectable row: a project header, then (unless the project
-// is collapsed) its sessions. While a filter is active every group is shown
-// expanded so matches are never hidden.
+// is collapsed) its sessions. Starred sessions are moved out of their project
+// into a "★ starred" group at the top. While a filter is active every group
+// is shown expanded so matches are never hidden.
 function buildRows(projects, filter, collapsed) {
   const needle = filter.trim().toLowerCase();
+  const matches = (s) => !needle ||
+    sessionLabel(s).toLowerCase().includes(needle) ||
+    groupLabel(s.projectPath).toLowerCase().includes(needle);
+  const starred = projects.flatMap(p => p.sessions.filter(s => s.starred))
+    .sort((a, b) => new Date(b.modified) - new Date(a.modified));
+  const groups = [
+    { projectPath: STARRED, label: '★ starred', sessions: starred },
+    ...projects.map(p => ({ projectPath: p.projectPath, label: groupLabel(p.projectPath), sessions: p.sessions.filter(s => !s.starred) })),
+  ];
   const rows = [];
-  for (const project of projects) {
-    const { projectPath } = project;
-    const label = groupLabel(projectPath);
-    const sessions = needle
-      ? project.sessions.filter(s =>
-          sessionLabel(s).toLowerCase().includes(needle) ||
-          label.toLowerCase().includes(needle))
-      : project.sessions;
+  for (const { projectPath, label, sessions: all } of groups) {
+    const sessions = all.filter(matches);
     if (sessions.length === 0) continue;
     const isCollapsed = !needle && collapsed.has(projectPath);
     const headerIdx = rows.length;
     rows.push({ kind: 'header', projectPath, label, sessions, collapsed: isCollapsed });
     if (isCollapsed) continue;
-    for (const session of sessions) rows.push({ kind: 'session', session, projectPath, label, headerIdx });
+    for (const session of sessions) rows.push({ kind: 'session', session, projectPath: session.projectPath, label, headerIdx });
   }
   return rows;
 }
@@ -74,7 +81,8 @@ export default function SessionList({
   const setGroup = (row, collapse) => {
     if (!row) return;
     const next = new Set(collapsed);
-    if (collapse) next.add(row.projectPath); else next.delete(row.projectPath);
+    const key = row.kind === 'header' ? row.projectPath : rows[row.headerIdx].projectPath;
+    if (collapse) next.add(key); else next.delete(key);
     onCollapsedChange(next);
     if (collapse && row.kind === 'session') setSelected(row.headerIdx);
   };
@@ -82,7 +90,7 @@ export default function SessionList({
   const toggleGroup = (row) => row && setGroup(row, !(row.kind === 'header' && row.collapsed));
   const toggleAll = () => {
     const anyExpanded = rows.some(r => r.kind === 'header' && !r.collapsed);
-    onCollapsedChange(anyExpanded ? new Set(projects.map(p => p.projectPath)) : new Set());
+    onCollapsedChange(anyExpanded ? new Set([STARRED, ...projects.map(p => p.projectPath)]) : new Set());
     const cur = rows[sel];
     if (anyExpanded && cur?.kind === 'session') {
       // Headers above keep their order; count them to find the new index.
@@ -171,7 +179,8 @@ export default function SessionList({
     if (key.leftArrow || input === 'h') { setGroup(row, true); return; }
     if (key.rightArrow || input === 'l') { if (isCollapsedRow(row)) setGroup(row, false); return; }
     if (input === 'c') { toggleGroup(row); return; }
-    // n / t act on the project, so they work on headers too.
+    // n / t act on the project, so they work on headers too (not the starred one).
+    if (row.projectPath === STARRED) { if (key.return) toggleGroup(row); return; }
     if (input === 'n') { onNew({ projectPath: row.projectPath }); return; }
     if (input === 't') { onOpenShell?.({ projectPath: row.projectPath }); return; }
     if (row.kind === 'header') {
@@ -226,7 +235,7 @@ export default function SessionList({
     if (used + CARD_H + (needContext ? HEADER_H : 0) > budget) break;
     if (needContext) {
       rowMap[currentRow++] = row.headerIdx;
-      items.push(renderHeader(rows[row.headerIdx], row.headerIdx, `ctx:${row.projectPath}`, false));
+      items.push(renderHeader(rows[row.headerIdx], row.headerIdx, `ctx:${rows[row.headerIdx].projectPath}`, false));
       used += HEADER_H;
     }
     for (let r = 0; r < CARD_H; r++) rowMap[currentRow + r] = i;
