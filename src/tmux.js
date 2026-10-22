@@ -186,6 +186,11 @@ function openTab(cmd, { cwd, label, visibleId, splitOf, dir } = {}) {
   return id;
 }
 
+/** Text currently on screen in pane `id`. */
+function capturePane(id) {
+  return tmuxCapture(['capture-pane', '-p', '-t', id]);
+}
+
 /** Give keyboard focus to pane `id`. */
 function focusPane(id) {
   if (id) tmuxQuiet(['select-pane', '-t', id]);
@@ -253,6 +258,6 @@ function killOwnedSession() {
 export {
   inTmux, ownsSession, selfPaneId, sessionExists, bootstrap, shellQuote,
   listLivePanes, visibleTab, visibleTabs, showTab, splitTab, hideTab,
-  openTab, closeTab, killTabs, focusPane, focusSidebar,
+  openTab, closeTab, killTabs, focusPane, capturePane, focusSidebar,
   setupSessionUi, toggleZoom, killOwnedSession,
 };

@@ -1,4 +1,6 @@
 import { execFileSync } from 'child_process';
+import fs from 'fs';
+import path from 'path';
 
 function gitRun(args, cwd) {
   return execFileSync('git', args, {
@@ -6,6 +8,21 @@ function gitRun(args, cwd) {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'ignore'],
   });
+}
+
+// Current branch from .git/HEAD without spawning git (cheap enough to call
+// per project on every list rebuild). Follows worktree `.git` files.
+export function currentBranch(projectPath) {
+  try {
+    let gitDir = path.join(projectPath, '.git');
+    if (fs.statSync(gitDir).isFile()) {
+      gitDir = path.resolve(projectPath, fs.readFileSync(gitDir, 'utf8').replace(/^gitdir:\s*/, '').trim());
+    }
+    const head = fs.readFileSync(path.join(gitDir, 'HEAD'), 'utf8').trim();
+    return head.startsWith('ref: refs/heads/') ? head.slice(16) : head.slice(0, 7);
+  } catch {
+    return null;
+  }
 }
 
 export function getGitStatus(projectPath) {

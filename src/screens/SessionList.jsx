@@ -7,6 +7,8 @@ import SearchBar from '../components/SearchBar.jsx';
 import SessionCard from '../components/SessionCard.jsx';
 import { CHROME_ROWS, footerHeight } from '../layout.js';
 import { useAnchoredSelection } from '../use-anchored-selection.js';
+import { worstStatus, statusGlyph, STATUS_STYLE } from '../agent-status.js';
+import { currentBranch } from '../git.js';
 
 function sessionLabel(session) {
   return session.name || session.aiTitle || session.summary || session.sessionId;
@@ -18,27 +20,35 @@ function groupLabel(projectPath) {
   return parts.slice(-2).join('/') || projectPath;
 }
 
-// Collapse key / pseudo projectPath of the starred group pinned at the top.
+// Collapse keys / pseudo projectPaths of the groups pinned at the top.
 const STARRED = '\u0000starred';
+const ACTIVE = '\u0000active';
+const PSEUDO = new Set([STARRED, ACTIVE]);
 
 // One entry per selectable row: a project header, then (unless the project
 // is collapsed) its sessions. Starred sessions are moved out of their project
-// into a "★ starred" group at the top. While a filter is active every group
-// is shown expanded so matches are never hidden.
-function buildRows(projects, filter, collapsed) {
+// into a "★ starred" group at the top, then sessions with an open tab into
+// "▶ active". While a filter is active every group is shown expanded so
+// matches are never hidden.
+function buildRows(projects, filter, collapsed, liveSessionIds) {
   const needle = filter.trim().toLowerCase();
   const matches = (s) => !needle ||
     sessionLabel(s).toLowerCase().includes(needle) ||
     groupLabel(s.projectPath).toLowerCase().includes(needle);
-  const starred = projects.flatMap(p => p.sessions.filter(s => s.starred))
-    .sort((a, b) => new Date(b.modified) - new Date(a.modified));
+  const byModified = (a, b) => new Date(b.modified) - new Date(a.modified);
+  const all = projects.flatMap(p => p.sessions);
+  const isActive = (s) => !s.starred && liveSessionIds.has(s.sessionId);
   const groups = [
-    { projectPath: STARRED, label: '★ starred', sessions: starred },
-    ...projects.map(p => ({ projectPath: p.projectPath, label: groupLabel(p.projectPath), sessions: p.sessions.filter(s => !s.starred) })),
+    { projectPath: STARRED, label: '★ starred', sessions: all.filter(s => s.starred).sort(byModified) },
+    { projectPath: ACTIVE, label: '▶ active', sessions: all.filter(isActive).sort(byModified) },
+    ...projects.map(p => ({
+      projectPath: p.projectPath, label: groupLabel(p.projectPath),
+      sessions: p.sessions.filter(s => !s.starred && !isActive(s)),
+    })),
   ];
   const rows = [];
-  for (const { projectPath, label, sessions: all } of groups) {
-    const sessions = all.filter(matches);
+  for (const { projectPath, label, sessions: groupSessions } of groups) {
+    const sessions = groupSessions.filter(matches);
     if (sessions.length === 0) continue;
     const isCollapsed = !needle && collapsed.has(projectPath);
     const headerIdx = rows.length;
@@ -61,7 +71,7 @@ const SEARCH_TOP = CHROME_ROWS + 2;
 const SEARCH_H = 3;
 
 export default function SessionList({
-  projects, showArchived, liveSessionIds, collapsed, onCollapsedChange,
+  projects, showArchived, liveSessionIds, statuses, spinFrame, collapsed, onCollapsedChange,
   onToggleShowArchived, onArchiveToggle, onStarToggle, onOpen, onNew, onView,
   onOpenShell, onSwitchToPlans, onCycleTab, onFilterMode, onQuit,
 }) {
@@ -69,7 +79,20 @@ export default function SessionList({
   const [filter, setFilter] = useState('');
   const rowMapRef = useRef({});
 
-  const rows = useMemo(() => buildRows(projects, filter, collapsed), [projects, filter, collapsed]);
+  const rows = useMemo(
+    () => buildRows(projects, filter, collapsed, liveSessionIds),
+    [projects, filter, collapsed, liveSessionIds]
+  );
+  const branches = useMemo(
+    () => new Map(projects.map(p => [p.projectPath, currentBranch(p.projectPath)])),
+    [projects]
+  );
+  // "2 working · 1 blocked" for the count line.
+  const statusSummary = useMemo(() => {
+    const counts = {};
+    for (const s of statuses.values()) counts[s] = (counts[s] || 0) + 1;
+    return Object.keys(STATUS_STYLE).filter(s => counts[s]).map(s => ({ s, n: counts[s] }));
+  }, [statuses]);
   const [sel, setSelected] = useAnchoredSelection(rows, rowKey);
   const sessionCount = useMemo(
     () => rows.reduce((n, r) => n + (r.kind === 'header' ? r.sessions.length : 0), 0),
@@ -90,7 +113,7 @@ export default function SessionList({
   const toggleGroup = (row) => row && setGroup(row, !(row.kind === 'header' && row.collapsed));
   const toggleAll = () => {
     const anyExpanded = rows.some(r => r.kind === 'header' && !r.collapsed);
-    onCollapsedChange(anyExpanded ? new Set([STARRED, ...projects.map(p => p.projectPath)]) : new Set());
+    onCollapsedChange(anyExpanded ? new Set([...PSEUDO, ...projects.map(p => p.projectPath)]) : new Set());
     const cur = rows[sel];
     if (anyExpanded && cur?.kind === 'session') {
       // Headers above keep their order; count them to find the new index.
@@ -180,7 +203,7 @@ export default function SessionList({
     if (key.rightArrow || input === 'l') { if (isCollapsedRow(row)) setGroup(row, false); return; }
     if (input === 'c') { toggleGroup(row); return; }
     // n / t act on the project, so they work on headers too (not the starred one).
-    if (row.projectPath === STARRED) { if (key.return) toggleGroup(row); return; }
+    if (PSEUDO.has(row.projectPath)) { if (key.return) toggleGroup(row); return; }
     if (input === 'n') { onNew({ projectPath: row.projectPath }); return; }
     if (input === 't') { onOpenShell?.({ projectPath: row.projectPath }); return; }
     if (row.kind === 'header') {
@@ -197,6 +220,8 @@ export default function SessionList({
   const renderHeader = (row, idx, key, spaced) => {
     const selectedHeader = idx === sel;
     const live = row.sessions.some(x => liveSessionIds.has(x.sessionId));
+    const worst = worstStatus(row.sessions.map(x => statuses.get(x.sessionId)));
+    const branch = branches.get(row.projectPath);
     return (
       <Box key={key} marginTop={spaced ? 1 : 0}>
         <Text wrap="truncate-end">
@@ -204,8 +229,11 @@ export default function SessionList({
           <Text bold color={selectedHeader ? C.black : C.blueBright} backgroundColor={selectedHeader ? C.cyan : undefined}>
             {row.label}
           </Text>
+          {branch && <Text color={C.magenta}>  {branch}</Text>}
           <Text dimColor>  {row.sessions.length}</Text>
-          {row.collapsed && live && <Text color={C.green}> ●</Text>}
+          {row.collapsed && live && (
+            <Text color={worst ? C[STATUS_STYLE[worst].color] : C.green}> {statusGlyph(worst, spinFrame) || '●'}</Text>
+          )}
         </Text>
       </Box>
     );
@@ -246,6 +274,8 @@ export default function SessionList({
         session={row.session}
         selected={i === sel}
         live={liveSessionIds.has(row.session.sessionId)}
+        status={statuses.get(row.session.sessionId)}
+        spinFrame={spinFrame}
       />
     );
     used += CARD_H;
@@ -258,6 +288,9 @@ export default function SessionList({
         <Text dimColor>
           {sessionCount} session{sessionCount === 1 ? '' : 's'}{showArchived ? ' · archived' : ''}
         </Text>
+        {statusSummary.map(({ s, n }) => (
+          <Text key={s} color={C[STATUS_STYLE[s].color]}> · {n} {s}</Text>
+        ))}
       </Box>
       <SearchBar active={filterMode} value={filter} />
       <Box flexDirection="column" flexGrow={1}>

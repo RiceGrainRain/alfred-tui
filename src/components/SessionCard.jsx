@@ -2,6 +2,7 @@ import React from 'react';
 import { Box, Text } from 'ink';
 import { C } from '../theme.js';
 import { relativeTime } from '../time.js';
+import { STATUS_STYLE, statusGlyph } from '../agent-status.js';
 
 function sessionLabel(session) {
   return session.name || session.aiTitle || session.summary || session.sessionId;
@@ -12,7 +13,9 @@ function truncate(str, max) {
   return str.length <= max ? str : str.slice(0, max - 1) + '…';
 }
 
-export default function SessionCard({ session, selected, live }) {
+export default function SessionCard({ session, selected, live, status, spinFrame }) {
+  const st = live ? STATUS_STYLE[status] || STATUS_STYLE.idle : null;
+  const glyph = statusGlyph(status || 'idle', spinFrame);
   const star = session.starred ? '★' : '☆';
   const raw = sessionLabel(session).replace(/\s+/g, ' ').trim();
   // Pane width minus border (2), paddingX (2), the dot (2) and the star (2).
@@ -31,7 +34,7 @@ export default function SessionCard({ session, selected, live }) {
     >
       <Box justifyContent="space-between">
         <Text>
-          <Text color={live ? C.green : C.gray}>{live ? '● ' : '  '}</Text>
+          <Text color={st ? C[st.color] : C.gray}>{st ? `${glyph} ` : '  '}</Text>
           <Text bold={selected} color={selected ? C.white : undefined}>{title}</Text>
         </Text>
         <Text color={session.starred ? C.yellow : C.gray}>{star}</Text>
@@ -40,7 +43,7 @@ export default function SessionCard({ session, selected, live }) {
         <Text>{'  '}</Text>
         <Text dimColor>{meta}</Text>
         {session.archived ? <Text color={C.yellow} dimColor> · archived</Text> : null}
-        {live ? <Text color={C.green} bold> · live</Text> : null}
+        {st ? <Text color={C[st.color]} bold> · {status || 'live'}</Text> : null}
       </Box>
     </Box>
   );

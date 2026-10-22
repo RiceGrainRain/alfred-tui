@@ -15,6 +15,7 @@ import path from 'path';
 import { listPlanModePlans, listTrackedProgress, planModePath } from './plans.js';
 import { attachMouseListener, disableMouse } from './mouse.js';
 import { setHintsVisible } from './layout.js';
+import { paneStatus, nextStatus } from './agent-status.js';
 
 const EDITOR = process.env.ALFRED_EDITOR || 'nvim';
 const EDITOR_NAME = path.basename(EDITOR.split(' ')[0]);
@@ -425,6 +426,38 @@ export default function App() {
     [tabs]
   );
 
+  // working / blocked / idle / done per open claude tab, read off its pane.
+  const [statuses, setStatuses] = useState(() => new Map());
+  const statusesRef = useRef(statuses);
+  const statusSigRef = useRef('');
+  useEffect(() => {
+    if (status !== 'ready') return;
+    const timer = setInterval(() => {
+      const next = new Map();
+      for (const t of tabsRef.current) {
+        if (!t.sessionId) continue;
+        const seen = t.id === activeTabRef.current;
+        next.set(t.sessionId, nextStatus(statusesRef.current.get(t.sessionId), paneStatus(tmux.capturePane(t.id)), seen));
+      }
+      const sig = [...next].join();
+      if (sig !== statusSigRef.current) {
+        statusSigRef.current = sig;
+        statusesRef.current = next;
+        setStatuses(next);
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [status]);
+
+  // Spinner frame for working sessions; only ticks while something works.
+  const [spinFrame, setSpinFrame] = useState(0);
+  const anyWorking = [...statuses.values()].includes('working');
+  useEffect(() => {
+    if (!anyWorking) return;
+    const timer = setInterval(() => setSpinFrame(f => f + 1), 250);
+    return () => clearInterval(timer);
+  }, [anyWorking]);
+
   if (status === 'error') {
     return (
       <Box flexDirection="column" padding={1}>
@@ -464,6 +497,8 @@ export default function App() {
         projects={projects}
         showArchived={showArchived}
         liveSessionIds={liveSessionIds}
+        statuses={statuses}
+        spinFrame={spinFrame}
         collapsed={collapsedProjects}
         onCollapsedChange={setCollapsedProjects}
         onToggleShowArchived={onToggleShowArchived}
